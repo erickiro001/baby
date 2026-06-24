@@ -15,6 +15,7 @@ func seed() {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("123456"), 12)
 	user := models.User{
 		Username:     "xixibaba",
+		Name:         "嘻嘻爸爸",
 		Email:        "xixibaba@example.com",
 		PasswordHash: string(hash),
 	}

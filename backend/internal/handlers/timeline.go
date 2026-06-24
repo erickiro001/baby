@@ -41,7 +41,7 @@ func (h *TimelineHandler) List(c *gin.Context) {
 	}
 	var filter services.FilterInput
 	c.ShouldBindQuery(&filter)
-	entries, err := h.svc.List(uint(babyID), filter)
+	entries, err := h.svc.List(uint(babyID), getUserID(c), filter)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -80,7 +80,7 @@ func (h *TimelineHandler) Create(c *gin.Context) {
 		utils.BadRequest(c, err.Error())
 		return
 	}
-	entry, err := h.svc.Create(getUserID(c), getUsername(c), input)
+	entry, err := h.svc.Create(getUserID(c), getAuthorName(c), input)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -161,7 +161,7 @@ func (h *TimelineHandler) AddComment(c *gin.Context) {
 		utils.BadRequest(c, err.Error())
 		return
 	}
-	comment, err := h.svc.AddComment(uint(entryID), getUserID(c), getUsername(c), input.Text)
+	comment, err := h.svc.AddComment(uint(entryID), getUserID(c), getAuthorName(c), input.Text)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -196,10 +196,19 @@ func getUserID(c *gin.Context) uint {
 	return v.(uint)
 }
 
-func getUsername(c *gin.Context) string {
-	v, _ := c.Get("username")
-	if v == nil {
-		return ""
+func getAuthorName(c *gin.Context) string {
+	v, _ := c.Get("name")
+	if v != nil {
+		if s, ok := v.(string); ok && s != "" {
+			return s
+		}
 	}
-	return v.(string)
+	// fallback to username
+	u, _ := c.Get("username")
+	if u != nil {
+		if s, ok := u.(string); ok {
+			return s
+		}
+	}
+	return ""
 }

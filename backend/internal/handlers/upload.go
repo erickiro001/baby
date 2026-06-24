@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const maxUploadSize = 10 << 20 // 10 MB
+const maxUploadSize = 1 << 30 // 1 GB
 
 // UploadHandler handles independent file uploads.
 type UploadHandler struct {
@@ -37,14 +37,13 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	if c.Request.ContentLength > maxUploadSize {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{
 			"code":    413,
-			"message": fmt.Sprintf("文件过大 (%d bytes)，最大允许 10MB", c.Request.ContentLength),
+			"message": fmt.Sprintf("文件过大 (%d bytes)，最大允许 1GB", c.Request.ContentLength),
 		})
 		return
 	}
 
-	// Parse multipart form with explicit memory limit
-	// Files > 1MB go to temp disk, not memory
-	if err := c.Request.ParseMultipartForm(maxUploadSize); err != nil {
+	// Parse multipart form: keep only 1MB in memory, rest to temp disk
+	if err := c.Request.ParseMultipartForm(1 << 20); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"message": "无法解析上传文件: " + err.Error(),

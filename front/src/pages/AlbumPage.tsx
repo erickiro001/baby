@@ -9,12 +9,15 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import BottomNav from '@/components/BottomNav';
+import MediaViewer from '@/components/MediaViewer';
+import type { MediaItem } from '@/components/MediaViewer';
 import type { TimelineEntry, EventAlbum } from '@/types';
 
 /* ─── PhotoItem type ─── */
 interface PhotoItem {
   entryId: string;
   imageUrl: string;
+  videoUrl?: string;
   type: 'photo' | 'video';
   authorName: string;
   date: string;
@@ -27,8 +30,11 @@ interface PhotoItem {
 function extractPhotos(timeline: TimelineEntry[]): PhotoItem[] {
   const items: PhotoItem[] = [];
   for (const entry of timeline) {
-    if (entry.type === 'video' && entry.imageUrl) {
-      items.push({ entryId: entry.id, imageUrl: entry.imageUrl, type: 'video', authorName: entry.authorName, date: entry.date, tags: entry.tags, albumIds: entry.albumIds, description: entry.description });
+    if (entry.type === 'video') {
+      const url = entry.imageUrl || entry.videoUrl || '';
+      if (url) {
+        items.push({ entryId: entry.id, imageUrl: entry.imageUrl || '', videoUrl: entry.videoUrl, type: 'video', authorName: entry.authorName, date: entry.date, tags: entry.tags, albumIds: entry.albumIds, description: entry.description });
+      }
     }
     if (entry.images?.length) {
       for (const img of entry.images) items.push({ entryId: entry.id, imageUrl: img, type: 'photo', authorName: entry.authorName, date: entry.date, tags: entry.tags, albumIds: entry.albumIds, description: entry.description });
@@ -64,7 +70,6 @@ const filterChips = [
   { key: 'all' as const, label: '全部', icon: Grid3X3 },
   { key: 'photo' as const, label: '照片', icon: Image },
   { key: 'video' as const, label: '视频', icon: Play },
-  { key: 'my-upload' as const, label: '我的', icon: Calendar },
 ];
 
 /* ═══════════════════════════════════════════
@@ -146,6 +151,14 @@ const AlbumDetailView: React.FC<{ album: EventAlbum; onBack: () => void }> = ({ 
   const photos = useMemo(() => extractPhotos(timeline).filter((p) => p.albumIds?.includes(album.id)), [timeline, album.id]);
   const grouped = useMemo(() => groupByMonth(photos), [photos]);
 
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  const mediaItems: MediaItem[] = useMemo(() =>
+    photos.map((p) => ({ url: p.type === 'video' ? (p.videoUrl || p.imageUrl) : p.imageUrl, type: p.type })),
+    [photos]);
+  const currentViewerPhoto = viewerOpen ? photos[viewerIndex] : null;
+
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: '#FFFCF7' }}>
       <div className="sticky top-0 z-30 px-4 pt-4 pb-3" style={{ backgroundColor: '#FFFCF7' }}>
@@ -160,17 +173,53 @@ const AlbumDetailView: React.FC<{ album: EventAlbum; onBack: () => void }> = ({ 
         ) : grouped.map(([month, items]) => (
           <div key={month} className="mb-4">
             <h3 className="text-sm font-heading font-semibold mb-2 py-1" style={{ color: '#8B7355' }}>{month}</h3>
-            <div className="columns-2 gap-2">
+            <div className="grid grid-cols-3 gap-1">
               {items.map((photo, i) => (
-                <motion.div key={`${photo.entryId}-${i}`} className="break-inside-avoid mb-2 rounded-lg overflow-hidden relative" style={{ border: '1px solid rgba(92,64,51,0.12)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}>
-                  <img src={photo.imageUrl} alt="" className="w-full object-cover" loading="lazy" />
-                  {photo.type === 'video' && <div className="absolute inset-0 flex items-center justify-center bg-black/20"><div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/80"><Play size={14} color="#5C4033" fill="#5C4033" /></div></div>}
+                <motion.div
+                  key={`${photo.entryId}-${i}`}
+                  className="aspect-square rounded-sm overflow-hidden relative cursor-pointer"
+                  style={{ border: '1px solid rgba(92,64,51,0.1)' }}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                  onClick={() => { const globalIdx = photos.findIndex(p => p.entryId === photo.entryId && p.imageUrl === photo.imageUrl); setViewerIndex(globalIdx); setViewerOpen(true); }}
+                >
+                  {photo.type === 'video' ? (
+                    <div className="relative w-full h-full">
+                      <video
+                        src={photo.videoUrl || photo.imageUrl}
+                        className="w-full h-full object-cover"
+                        style={{ display: 'block' }}
+                        preload="metadata"
+                        muted
+                        playsInline
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.8)', border: '1.5px solid #5C4033' }}>
+                          <Play size={12} color="#5C4033" fill="#5C4033" className="ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : photo.imageUrl ? (
+                    <img src={photo.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-black"><Play size={24} color="#fff" /></div>
+                  )}
                 </motion.div>
               ))}
             </div>
           </div>
         ))}
       </div>
+
+      {/* Media Viewer */}
+      {viewerOpen && currentViewerPhoto && (
+        <MediaViewer
+          items={mediaItems}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerOpen(false)}
+          date={currentViewerPhoto.date}
+          description={currentViewerPhoto.description}
+        />
+      )}
     </div>
   );
 };
@@ -221,7 +270,8 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
 
   const [searchFocused, setSearchFocused] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
-  const [viewingPhoto, setViewingPhoto] = useState<PhotoItem | null>(null);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allPhotos = useMemo(() => extractPhotos(timeline), [timeline]);
@@ -229,12 +279,17 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
     let r = allPhotos;
     if (albumFilter === 'photo') r = r.filter((p) => p.type === 'photo');
     if (albumFilter === 'video') r = r.filter((p) => p.type === 'video');
-    if (albumFilter === 'my-upload') r = r.filter((p) => p.authorName === '糖糖爸爸');
     if (albumSearch.trim()) r = r.filter((p) => matchesSearch(p, albumSearch));
     return r;
   }, [allPhotos, albumFilter, albumSearch]);
   const grouped = useMemo(() => groupByMonth(filteredPhotos), [filteredPhotos]);
   const selectedCount = selectedPhotoIds.length;
+
+  // Convert to media items for viewer
+  const mediaItems: MediaItem[] = useMemo(() =>
+    filteredPhotos.map((p) => ({ url: p.type === 'video' ? (p.videoUrl || p.imageUrl) : p.imageUrl, type: p.type })),
+    [filteredPhotos]);
+  const currentViewerPhoto = viewerOpen ? filteredPhotos[viewerIndex] : null;
 
   const handlePointerDown = useCallback((photo: PhotoItem) => {
     if (batchMode) return;
@@ -250,10 +305,7 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
           <h1 className="text-2xl font-display" style={{ color: '#5C4033' }}>美好瞬间</h1>
           <div className="flex items-center gap-2">
             {!batchMode ? (
-              <>
-                <motion.button className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFD6E5', border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.9 }} onClick={onOpenEvents}><FolderHeart size={16} color="#5C4033" /></motion.button>
-                <motion.button className="w-9 h-9 rounded-full flex items-center justify-center" style={{ border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.9 }} onClick={() => setBatchMode(true)}><CheckSquare size={16} color="#5C4033" /></motion.button>
-              </>
+              <motion.button className="w-9 h-9 rounded-full flex items-center justify-center" style={{ border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.9 }} onClick={() => setBatchMode(true)}><CheckSquare size={16} color="#5C4033" /></motion.button>
             ) : (
               <motion.button className="px-3 py-1.5 rounded-full text-xs font-heading font-semibold" style={{ backgroundColor: '#FF8A8A', color: '#FFFCF7', border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.9 }} onClick={() => { setBatchMode(false); clearSelection(); }}>完成</motion.button>
             )}
@@ -273,6 +325,9 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
                 <chip.icon size={12} />{chip.label}
               </motion.button>
             ))}
+            <motion.button className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-heading font-semibold whitespace-nowrap shrink-0 border-2 ml-1" style={{ backgroundColor: '#FFD6E5', borderColor: '#5C4033', color: '#5C4033' }} whileTap={{ scale: 0.93 }} onClick={onOpenEvents}>
+              <FolderHeart size={12} />事件相册
+            </motion.button>
           </div>
         )}
         {/* Batch info */}
@@ -293,13 +348,32 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
             <div className="flex items-center gap-2 py-2 mb-2" style={{ backgroundColor: '#FFFCF7' }}>
               <Calendar size={14} color="#8B7355" /><h3 className="text-sm font-heading font-semibold" style={{ color: '#8B7355' }}>{month}</h3><span className="text-[11px]" style={{ color: '#A09890' }}>{items.length}张</span>
             </div>
-            <div className="columns-2 gap-2">
+            <div className="grid grid-cols-3 gap-1">
               {items.map((photo, idx) => {
                 const isSelected = selectedPhotoIds.includes(photo.entryId);
                 return (
-                  <motion.div key={`${photo.entryId}-${idx}`} className="break-inside-avoid mb-2 rounded-lg overflow-hidden relative" style={{ border: isSelected ? '2px solid #FFD6E5' : '1px solid rgba(92,64,51,0.12)', boxShadow: isSelected ? '0 0 0 2px #FFD6E5' : 'none' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }} onPointerDown={() => handlePointerDown(photo)} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onContextMenu={(e) => e.preventDefault()} onClick={() => batchMode ? togglePhotoSelection(photo.entryId) : setViewingPhoto(photo)}>
-                    <img src={photo.imageUrl} alt="" className="w-full object-cover" style={{ display: 'block' }} loading="lazy" />
-                    {photo.type === 'video' && <div className="absolute inset-0 flex items-center justify-center bg-black/20"><div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/80"><Play size={16} color="#5C4033" fill="#5C4033" /></div></div>}
+                  <motion.div key={`${photo.entryId}-${idx}`} className="aspect-square rounded-sm overflow-hidden relative" style={{ border: isSelected ? '2px solid #FFD6E5' : '1px solid rgba(92,64,51,0.1)', boxShadow: isSelected ? '0 0 0 2px #FFD6E5' : 'none' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }} onPointerDown={() => handlePointerDown(photo)} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onContextMenu={(e) => e.preventDefault()} onClick={() => batchMode ? togglePhotoSelection(photo.entryId) : (() => { const globalIdx = filteredPhotos.findIndex(p => p.entryId === photo.entryId && p.imageUrl === photo.imageUrl); setViewerIndex(globalIdx); setViewerOpen(true); })()}>
+                    {photo.type === 'video' ? (
+                      <div className="relative w-full h-full">
+                        <video
+                          src={photo.videoUrl || photo.imageUrl}
+                          className="w-full h-full object-cover"
+                          style={{ display: 'block' }}
+                          preload="metadata"
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.8)', border: '1.5px solid #5C4033' }}>
+                            <Play size={13} color="#5C4033" fill="#5C4033" className="ml-0.5" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : photo.imageUrl ? (
+                      <img src={photo.imageUrl} alt="" className="w-full h-full object-cover" style={{ display: 'block' }} loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-black"><Play size={24} color="#fff" /></div>
+                    )}
                     {batchMode && <div className="absolute top-1.5 left-1.5"><div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: isSelected ? '#FFD6E5' : 'rgba(255,255,255,0.8)', border: isSelected ? '2px solid #5C4033' : '2px solid rgba(92,64,51,0.3)' }}>{isSelected && <CheckSquare size={12} color="#5C4033" />}</div></div>}
                     {photo.albumIds && photo.albumIds.length > 0 && !batchMode && <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center bg-white/80"><FolderHeart size={10} color="#5C4033" /></div>}
                   </motion.div>
@@ -310,16 +384,16 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
         ))}
       </div>
 
-      {/* Photo Viewer */}
-      <AnimatePresence>
-        {viewingPhoto && (
-          <motion.div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.9)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setViewingPhoto(null)}>
-            <motion.img src={viewingPhoto.imageUrl} alt="" className="max-w-full max-h-[85vh] object-contain" initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }} onClick={(e) => e.stopPropagation()} />
-            <button className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center bg-white/20" onClick={() => setViewingPhoto(null)}><X size={18} color="#fff" /></button>
-            <div className="absolute bottom-4 left-4 right-4 text-center"><p className="text-xs text-white/70 font-body">{viewingPhoto.description}</p></div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Media Viewer */}
+      {viewerOpen && currentViewerPhoto && (
+        <MediaViewer
+          items={mediaItems}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerOpen(false)}
+          date={currentViewerPhoto.date}
+          description={currentViewerPhoto.description}
+        />
+      )}
 
       {/* Batch Action Bar */}
       <AnimatePresence>

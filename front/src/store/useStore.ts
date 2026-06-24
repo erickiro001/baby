@@ -42,7 +42,7 @@ function convertEntry(e: timelineApi.TimelineEntry): TimelineEntry {
     description: e.description || '',
     images: fixUrls(e.images || []),
     imageUrl: fixUrl(e.image_url || ''),
-    videoUrl: fixUrl((e as Record<string, unknown>).video_url as string || ''),
+    videoUrl: fixUrl(e.video_url || ''),
     likes: e.likes,
     liked: !!(e.liked),
     featured: e.featured,
@@ -129,7 +129,7 @@ function convertFamilySpace(fs: familyApi.FamilySpace): FamilySpace {
     members: (fs.members || []).map((m): FamilyMember => ({
       id: String(m.id),
       name: m.name,
-      avatar: m.avatar || '',
+      avatar: fixUrl(m.avatar || ''),
       role: m.role,
       permission: (m.permission as 'edit' | 'view') || 'view',
       joinedAt: m.joined_at || '',
@@ -522,7 +522,7 @@ export const useStore = create<AppState>((set, get) => ({
   addTimelineEntry: async (entry) => {
     // 乐观更新 UI
     set((s) => ({ timeline: [entry, ...s.timeline] }));
-    // 异步回写后端
+    // 异步回写后端，成功后刷新数据
     try {
       await timelineApi.createEntry({
         baby_id: Number(entry.babyId),
@@ -535,6 +535,8 @@ export const useStore = create<AppState>((set, get) => ({
         tags: entry.tags,
         milestone_title: entry.milestoneTitle,
       });
+      // 刷新时间线以获取服务端 ID 和最新数据
+      await get().fetchTimeline(entry.babyId);
     } catch { /* 失败时暂时不回滚，后续可加 error toast */ }
   },
 
@@ -792,7 +794,7 @@ export const useStore = create<AppState>((set, get) => ({
         name: b.name,
         birthday: b.birthday,
         gender: b.gender as 'boy' | 'girl',
-        avatar: b.avatar || '',
+        avatar: fixUrl(b.avatar || ''),
         bloodType: b.blood_type || '',
         birthWeight: b.birth_weight || '',
         birthHeight: b.birth_height || '',

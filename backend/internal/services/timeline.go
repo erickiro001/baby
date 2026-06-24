@@ -14,7 +14,7 @@ import (
 
 type TimelineService struct{}
 
-func (s *TimelineService) List(babyID uint, filter FilterInput) ([]models.TimelineEntry, error) {
+func (s *TimelineService) List(babyID uint, userID uint, filter FilterInput) ([]models.TimelineEntry, error) {
 	tx := database.DB.Where("baby_id = ?", babyID)
 
 	switch filter.Type {
@@ -28,7 +28,28 @@ func (s *TimelineService) List(babyID uint, filter FilterInput) ([]models.Timeli
 
 	var entries []models.TimelineEntry
 	err := tx.Preload("Comments").Order("date DESC").Find(&entries).Error
-	return entries, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute liked flag per entry for the current user
+	if userID > 0 {
+		entryIDs := make([]uint, len(entries))
+		for i, e := range entries {
+			entryIDs[i] = e.ID
+		}
+		var likedIDs []uint
+		database.DB.Model(&models.EntryLike{}).Where("user_id = ? AND entry_id IN ?", userID, entryIDs).Pluck("entry_id", &likedIDs)
+		likedSet := make(map[uint]bool, len(likedIDs))
+		for _, id := range likedIDs {
+			likedSet[id] = true
+		}
+		for i := range entries {
+			entries[i].Liked = likedSet[entries[i].ID]
+		}
+	}
+
+	return entries, nil
 }
 
 func (s *TimelineService) GetByID(id uint) (*models.TimelineEntry, error) {
@@ -50,6 +71,7 @@ func (s *TimelineService) Create(userID uint, username string, input CreateEntry
 		Description:    input.Description,
 		Images:         input.Images,
 		ImageURL:       input.ImageURL,
+		VideoURL:       input.VideoURL,
 		Tags:           prefixHashTags(input.Tags),
 		MilestoneTitle: input.MilestoneTitle,
 	}
@@ -133,6 +155,7 @@ type CreateEntryInput struct {
 	Description    string   `json:"description"`
 	Images         []string `json:"images"`
 	ImageURL       string   `json:"image_url"`
+	VideoURL       string   `json:"video_url"`
 	Tags           []string `json:"tags"`
 	MilestoneTitle string   `json:"milestone_title"`
 }

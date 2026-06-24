@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"baby-backend/internal/database"
@@ -20,6 +21,7 @@ type AuthService struct {
 
 type RegisterInput struct {
 	Username string `json:"username" binding:"required,min=3,max=64"`
+	Name     string `json:"name" binding:"max=64"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6,max=128"`
 }
@@ -37,6 +39,7 @@ type AuthResult struct {
 type UserSafeView struct {
 	ID       uint   `json:"id"`
 	Username string `json:"username"`
+	Name     string `json:"name"`
 	Email    string `json:"email"`
 }
 
@@ -71,8 +74,14 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 	}
 
 	// create user
+	displayName := input.Username
+	if input.Name != "" {
+		displayName = strings.TrimSpace(input.Name)
+	}
+
 	user := models.User{
 		Username:     input.Username,
+		Name:         displayName,
 		Email:        input.Email,
 		PasswordHash: string(hash),
 	}
@@ -82,7 +91,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 	}
 
 	// generate JWT
-	token, err := utils.GenerateToken(user.ID, user.Username, s.JWTExpireDuration)
+	token, err := utils.GenerateToken(user.ID, user.Username, displayName, s.JWTExpireDuration)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
@@ -92,6 +101,7 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 		User: UserSafeView{
 			ID:       user.ID,
 			Username: user.Username,
+			Name:     displayName,
 			Email:    user.Email,
 		},
 	}, nil
@@ -113,8 +123,13 @@ func (s *AuthService) Login(input LoginInput) (*AuthResult, error) {
 		return nil, errors.New("invalid username or password")
 	}
 
+	displayName := user.Name
+	if displayName == "" {
+		displayName = user.Username
+	}
+
 	// generate JWT
-	token, err := utils.GenerateToken(user.ID, user.Username, s.JWTExpireDuration)
+	token, err := utils.GenerateToken(user.ID, user.Username, displayName, s.JWTExpireDuration)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
@@ -124,6 +139,7 @@ func (s *AuthService) Login(input LoginInput) (*AuthResult, error) {
 		User: UserSafeView{
 			ID:       user.ID,
 			Username: user.Username,
+			Name:     displayName,
 			Email:    user.Email,
 		},
 	}, nil

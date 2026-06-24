@@ -121,10 +121,12 @@ type TimelineEntry struct {
 	Description    string         `gorm:"size:2048" json:"description"`
 	Images         StringSlice    `gorm:"type:text" json:"images,omitempty"`
 	ImageURL       string         `gorm:"size:512" json:"image_url,omitempty"`
+	VideoURL       string         `gorm:"size:512" json:"video_url,omitempty"`
 	Featured       bool           `gorm:"not null;default:false" json:"featured"`
 	Tags           StringSlice    `gorm:"type:text" json:"tags,omitempty"`
 	MilestoneTitle string         `gorm:"size:256" json:"milestone_title,omitempty"`
 	LikesCount     int            `gorm:"not null;default:0" json:"likes"`
+	Liked          bool           `gorm:"-" json:"liked"` // computed per-request
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`

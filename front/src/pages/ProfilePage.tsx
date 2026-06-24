@@ -365,8 +365,24 @@ const SettingsSection: React.FC = () => {
 const ProfilePage: React.FC = () => {
   const user = useStore((s) => s.user);
   const setUser = useStore((s) => s.setUser);
+  const familySpaces = useStore((s) => s.familySpaces);
   const [showInvite, setShowInvite] = useState(false);
   const userAvatarRef = useRef<HTMLInputElement>(null);
+
+  const updateAvatars = (fullUrl: string) => {
+    if (!user) return;
+    setUser({ ...user, avatar: fullUrl });
+    localStorage.setItem('user_avatar', fullUrl);
+    // 同步更新家庭空间中自己的头像
+    useStore.setState((s) => ({
+      familySpaces: s.familySpaces.map((fs) => ({
+        ...fs,
+        members: fs.members.map((m) =>
+          m.name === user.name ? { ...m, avatar: fullUrl } : m
+        ),
+      })),
+    }));
+  };
 
   const handleUserAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -381,8 +397,9 @@ const ProfilePage: React.FC = () => {
     // Upload to server in background
     try {
       const result = await uploadFile(file);
-      setUser({ ...user, avatar: result.url });
-    } catch { /* preview stays, server will get the URL on next save */ }
+      const fullUrl = result.url;
+      updateAvatars(fullUrl);
+    } catch { /* preview stays */ }
   };
 
   return (
@@ -403,15 +420,11 @@ const ProfilePage: React.FC = () => {
             {user?.avatar ? (
               <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-xl font-heading font-bold">{user?.name?.charAt(0) || '我'}</span>
+              <>
+                <span className="text-xl font-heading font-bold">{user?.name?.charAt(0) || '我'}</span>
+                <Camera size={14} color="#FFFCF7" strokeWidth={2} style={{ position: 'absolute', bottom: -1, right: -1, backgroundColor: '#5C4033', borderRadius: '50%', padding: 3 }} />
+              </>
             )}
-            {/* Camera overlay hint */}
-            <div
-              className="absolute inset-0 flex items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(92,64,51,0.22)' }}
-            >
-              <Camera size={18} color="#FFFCF7" strokeWidth={2} />
-            </div>
             <input
               ref={userAvatarRef}
               type="file"
@@ -422,7 +435,6 @@ const ProfilePage: React.FC = () => {
           </motion.button>
           <div className="flex-1">
             <h1 className="text-xl font-display" style={{ color: '#5C4033' }}>{user?.name || '我'}</h1>
-            <p className="text-xs font-heading" style={{ color: '#8B7355' }}>点击头像可更换照片</p>
           </div>
         </div>
         <StatsSection />

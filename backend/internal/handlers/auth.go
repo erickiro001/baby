@@ -93,9 +93,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Profile(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
+	name, _ := c.Get("name")
 
 	utils.Success(c, gin.H{
 		"id":       userID,
 		"username": username,
+		"name":     name,
 	})
 }

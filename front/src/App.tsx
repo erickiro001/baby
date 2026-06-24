@@ -29,6 +29,7 @@ export default function App() {
     getProfile()
       .then(() => {
         useStore.getState().login();
+        restoreAvatar();
         setPhase('main');
         useStore.getState().fetchInitialData();
       })
@@ -39,7 +40,22 @@ export default function App() {
       });
   }, []);
 
-  const handleEnter = () => {
+  const restoreAvatar = () => {
+    const savedAvatar = localStorage.getItem('user_avatar');
+    if (!savedAvatar) return;
+    const state = useStore.getState();
+    if (!state.user) return;
+    const name = state.user.name;
+    state.setUser({ ...state.user, avatar: savedAvatar });
+    useStore.setState((s) => ({
+      familySpaces: s.familySpaces.map((fs) => ({
+        ...fs,
+        members: fs.members.map((m) =>
+          m.name === name ? { ...m, avatar: savedAvatar } : m
+        ),
+      })),
+    }));
+  };
     // 如果已经登录过，直接进首页
     if (isLoggedIn) {
       setPhase('main');
@@ -50,6 +66,7 @@ export default function App() {
 
   const handleLogin = () => {
     useStore.getState().login();
+    restoreAvatar();
     setPhase('main');
     // 异步加载后端数据
     useStore.getState().fetchInitialData();

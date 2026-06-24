@@ -1,14 +1,15 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Star, Trash2, Flag, X, Image, Play, FileText, Award, VolumeX, Volume2, Maximize, Minimize } from 'lucide-react';
+import { Heart, MessageCircle, Star, Trash2, X, Image, Play, FileText, Calendar, ChevronRight, ChevronLeft, VolumeX, Volume2, Maximize } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { smartTimeDisplay } from '@/lib/timeFormat';
 import BottomNav from '@/components/BottomNav';
 import CommentsDrawer from '@/components/CommentsDrawer';
-import ImageViewer from '@/components/ImageViewer';
+import ImageViewer from '@/components/MediaViewer';
 import type { TimelineEntry, ContentType } from '@/types';
+import type { MediaItem } from '@/components/MediaViewer';
 
-type FilterMode = { type: 'all' } | { type: 'featured' } | { type: 'member'; name: string } | { type: 'content'; contentType: ContentType };
+type FilterMode = { type: 'all' } | { type: 'content'; contentType: ContentType };
 
 /* ─── helpers ─── */
 const avatarColor = (name: string) => {
@@ -18,75 +19,17 @@ const avatarColor = (name: string) => {
   return colors[Math.abs(h) % colors.length];
 };
 
-/* ─── Long Press Menu ─── */
-const LongPressMenu: React.FC<{
-  entry: TimelineEntry;
-  position: { x: number; y: number };
-  onClose: () => void;
-}> = ({ entry, position, onClose }) => {
-  const toggleFeatured = useStore((s) => s.toggleFeatured);
-  const deleteTimelineEntry = useStore((s) => s.deleteTimelineEntry);
-
-  const items = [
-    { key: 'featured', label: entry.featured ? '取消精选' : '设为精选', icon: Star, color: '#5C4033', action: () => { toggleFeatured(entry.id); onClose(); } },
-    { key: 'delete', label: '删除', icon: Trash2, color: '#FF8A8A', action: () => { if (confirm('确定删除这条动态吗？')) { deleteTimelineEntry(entry.id); onClose(); } } },
-    { key: 'report', label: '举报', icon: Flag, color: '#A09890', action: () => { alert('举报已提交'); onClose(); } },
-  ];
-
-  const menuW = 140;
-  const menuH = items.length * 44;
-  const x = Math.min(Math.max(position.x - menuW / 2, 8), window.innerWidth - menuW - 8);
-  const y = Math.min(Math.max(position.y - menuH / 2, 60), window.innerHeight - menuH - 80);
-
-  return (
-    <>
-      <motion.div className="fixed inset-0 z-[55]" style={{ backgroundColor: 'rgba(92,64,51,0.08)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
-      <motion.div
-        className="fixed z-[56] rounded-xl overflow-hidden py-1"
-        style={{ left: x, top: y, width: menuW, backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.15) 0 4px 16px' }}
-        initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-      >
-        {items.map((item) => (
-          <motion.button key={item.key} className="w-full flex items-center gap-2.5 px-3 py-3 text-left hover:bg-[#FFF4E1] transition-colors" whileTap={{ scale: 0.97 }} onClick={item.action}>
-            <item.icon size={16} color={item.color} strokeWidth={2} />
-            <span className="text-sm font-body" style={{ color: item.color }}>{item.label}</span>
-          </motion.button>
-        ))}
-      </motion.div>
-    </>
-  );
-};
-
-/* ─── Card Wrapper with Long Press ─── */
-const CardWrapper: React.FC<{ entry: TimelineEntry; index: number; children: React.ReactNode }> = ({ entry, index, children }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    timerRef.current = setTimeout(() => {
-      setMenuPos({ x: e.clientX, y: e.clientY });
-      setMenuOpen(true);
-      if (navigator.vibrate) navigator.vibrate(50);
-    }, 500);
-  }, []);
-  const handlePointerUp = useCallback(() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } }, []);
-
-  return (
-    <>
-      <motion.div
-        className="rounded-xl overflow-hidden mb-4 select-none"
-        style={{ backgroundColor: '#FFFCF7', border: entry.featured ? '2px solid #5C4033' : '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.08) 0 3px 10px' }}
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05, duration: 0.35 }}
-        onPointerDown={handlePointerDown} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onContextMenu={(e) => e.preventDefault()}
-      >
-        {children}
-      </motion.div>
-      <AnimatePresence>{menuOpen && <LongPressMenu entry={entry} position={menuPos} onClose={() => setMenuOpen(false)} />}</AnimatePresence>
-    </>
-  );
-};
+/* ─── Card Wrapper ─── */
+const CardWrapper: React.FC<{ entry: TimelineEntry; index: number; children: React.ReactNode }> = ({ entry, index, children }) => (
+  <motion.div
+    className="rounded-xl overflow-hidden mb-4 select-none relative"
+    style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.08) 0 3px 10px' }}
+    initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05, duration: 0.35 }}
+    data-date={entry.date}
+  >
+    {children}
+  </motion.div>
+);
 
 /* ─── Author Row ─── */
 const AuthorRow: React.FC<{ entry: TimelineEntry }> = ({ entry }) => (
@@ -101,9 +44,6 @@ const AuthorRow: React.FC<{ entry: TimelineEntry }> = ({ entry }) => (
       </div>
       <span className="text-[11px]" style={{ color: '#A09890' }}>{smartTimeDisplay(entry.date)}</span>
     </div>
-    <span className="text-[10px] px-2 py-0.5 rounded-full font-heading font-medium shrink-0" style={{ backgroundColor: '#FFD6E5', color: '#5C4033' }}>
-      {useStore.getState().babies.find((b) => b.id === entry.babyId)?.name || '宝宝'}
-    </span>
   </div>
 );
 
@@ -120,9 +60,11 @@ const TagRow: React.FC<{ tags: string[] }> = ({ tags }) => {
 /* ─── Action Bar ─── */
 const ActionBar: React.FC<{ entry: TimelineEntry }> = ({ entry }) => {
   const toggleLike = useStore((s) => s.toggleLike);
+  const deleteTimelineEntry = useStore((s) => s.deleteTimelineEntry);
   const openComments = useStore((s) => s.openComments);
   const [likedAnim, setLikedAnim] = useState(false);
   const handleLike = () => { toggleLike(entry.id); if (!entry.liked) { setLikedAnim(true); setTimeout(() => setLikedAnim(false), 400); } };
+  const handleDelete = () => { if (confirm('确定删除这条动态吗？')) { deleteTimelineEntry(entry.id); } };
 
   return (
     <div className="flex items-center gap-4 px-3.5 py-2.5 border-t" style={{ borderColor: 'rgba(92,64,51,0.06)' }}>
@@ -135,6 +77,10 @@ const ActionBar: React.FC<{ entry: TimelineEntry }> = ({ entry }) => {
       <motion.button className="flex items-center gap-1.5" whileTap={{ scale: 0.9 }} onClick={() => openComments(entry.id)}>
         <MessageCircle size={18} strokeWidth={1.5} color="#A09890" />
         <span className="text-xs font-heading" style={{ color: '#A09890' }}>{entry.comments.length}</span>
+      </motion.button>
+      <div className="flex-1" />
+      <motion.button className="flex items-center gap-1" whileTap={{ scale: 0.9 }} onClick={handleDelete}>
+        <Trash2 size={15} strokeWidth={1.5} color="#A09890" />
       </motion.button>
     </div>
   );
@@ -318,27 +264,81 @@ const contentTypeConfig: { type: ContentType; label: string; icon: typeof Image 
   { type: 'photo', label: '照片', icon: Image },
   { type: 'video', label: '视频', icon: Play },
   { type: 'text', label: '文字', icon: FileText },
-  { type: 'milestone', label: '里程碑', icon: Award },
 ];
+
+/** Parse "2026-06-24" or ISO string to { year, month, day } */
+const parseDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+};
 
 const FilterBar: React.FC<{
   filter: FilterMode;
   onChange: (f: FilterMode) => void;
-}> = ({ filter, onChange }) => {
-  const timeline = useStore((s) => s.timeline);
-
-  // Extract unique authors from timeline
-  const authors = useMemo(() => {
-    const set = new Set<string>();
-    timeline.forEach((e) => set.add(e.authorName));
-    return Array.from(set);
-  }, [timeline]);
+  timeline: TimelineEntry[];
+  onJumpToDate: (year: number, month?: number, day?: number) => void;
+}> = ({ filter, onChange, timeline, onJumpToDate }) => {
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [pickYear, setPickYear] = useState<number | null>(null);
+  const [pickMonth, setPickMonth] = useState<number | null>(null);
 
   const isActive = (mode: FilterMode) => {
     if (filter.type !== mode.type) return false;
-    if (filter.type === 'member' && mode.type === 'member') return filter.name === (mode as { type: 'member'; name: string }).name;
     if (filter.type === 'content' && mode.type === 'content') return filter.contentType === (mode as { type: 'content'; contentType: ContentType }).contentType;
     return true;
+  };
+
+  // Compute available years / months / days from timeline
+  const { years, months, days } = useMemo(() => {
+    const yearSet = new Set<number>();
+    const monthSet = new Set<number>();
+    const daySet = new Set<number>();
+    timeline.forEach((e) => {
+      const d = parseDate(e.date);
+      if (!d) return;
+      yearSet.add(d.year);
+      if (pickYear === d.year) {
+        monthSet.add(d.month);
+        if (pickMonth === d.month) daySet.add(d.day);
+      }
+    });
+    return {
+      years: [...yearSet].sort((a, b) => b - a),
+      months: [...monthSet].sort((a, b) => a - b),
+      days: [...daySet].sort((a, b) => b - a),
+    };
+  }, [timeline, pickYear, pickMonth]);
+
+  const openPicker = () => {
+    setPickYear(null);
+    setPickMonth(null);
+    setTimePickerOpen(true);
+  };
+  const closePicker = () => setTimePickerOpen(false);
+
+  const selectYear = (y: number) => {
+    setPickYear(y);
+    setPickMonth(null);
+    onJumpToDate(y);
+  };
+  const selectMonth = (m: number) => {
+    setPickMonth(m);
+    if (pickYear) onJumpToDate(pickYear, m);
+  };
+  const selectDay = (d: number) => {
+    if (pickYear && pickMonth) onJumpToDate(pickYear, pickMonth, d);
+    closePicker();
+  };
+
+  const goBack = () => {
+    if (pickMonth !== null) {
+      setPickMonth(null);
+    } else if (pickYear !== null) {
+      setPickYear(null);
+    } else {
+      closePicker();
+    }
   };
 
   const Chip: React.FC<{ mode: FilterMode; children: React.ReactNode; icon?: typeof Image }> = ({ mode, children, icon: Icon }) => (
@@ -360,20 +360,27 @@ const FilterBar: React.FC<{
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1.5 -mx-4 px-4">
       <Chip mode={{ type: 'all' }}>全部</Chip>
-      <Chip mode={{ type: 'featured' }}>精选</Chip>
 
-      {/* Content type filters */}
       {contentTypeConfig.map((cfg) => (
         <Chip key={`c-${cfg.type}`} mode={{ type: 'content', contentType: cfg.type }} icon={cfg.icon}>
           {cfg.label}
         </Chip>
       ))}
 
-      {/* Member filters */}
-      {authors.length > 1 && <div className="w-px h-4 border-l mx-1" style={{ borderColor: '#A09890' }} />}
-      {authors.map((name) => (
-        <Chip key={`m-${name}`} mode={{ type: 'member', name }}>{name}</Chip>
-      ))}
+      {/* Time jump button */}
+      <motion.button
+        className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-heading font-semibold whitespace-nowrap shrink-0 border-2 transition-colors ml-1"
+        style={{
+          backgroundColor: '#FFFCF7',
+          borderColor: '#A09890',
+          color: '#5C4033',
+        }}
+        whileTap={{ scale: 0.93 }}
+        onClick={openPicker}
+      >
+        <Calendar size={12} strokeWidth={2} />
+        时间
+      </motion.button>
 
       {/* Clear filter */}
       {filter.type !== 'all' && (
@@ -388,6 +395,73 @@ const FilterBar: React.FC<{
           <X size={12} color="#5C4033" />
         </motion.button>
       )}
+
+      {/* Time picker popover */}
+      <AnimatePresence>
+        {timePickerOpen && (
+          <>
+            <motion.div className="fixed inset-0 z-[55]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closePicker} />
+            <motion.div
+              className="absolute top-full left-4 right-4 z-[56] mt-1 rounded-xl overflow-hidden"
+              style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.15) 0 4px 16px' }}
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            >
+              {/* Header */}
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <button className="w-6 h-6 flex items-center justify-center" onClick={goBack}>
+                  <ChevronLeft size={16} color="#5C4033" />
+                </button>
+                <span className="text-sm font-heading font-semibold" style={{ color: '#5C4033' }}>
+                  {pickYear === null ? '选择年份' : pickMonth === null ? `${pickYear}年` : `${pickYear}年${pickMonth}月`}
+                </span>
+              </div>
+
+              {/* Pick list */}
+              <div className="max-h-48 overflow-y-auto no-scrollbar p-2 grid grid-cols-4 gap-1.5">
+                {pickYear === null &&
+                  years.map((y) => (
+                    <motion.button
+                      key={y}
+                      className="py-2 rounded-lg text-sm font-heading font-semibold"
+                      style={{ backgroundColor: '#FFFCF7', color: '#5C4033', border: '1px solid rgba(92,64,51,0.2)' }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => selectYear(y)}
+                    >
+                      {y}
+                    </motion.button>
+                  ))}
+                {pickYear !== null && pickMonth === null &&
+                  months.map((m) => (
+                    <motion.button
+                      key={m}
+                      className="py-2 rounded-lg text-sm font-heading font-semibold"
+                      style={{ backgroundColor: '#FFFCF7', color: '#5C4033', border: '1px solid rgba(92,64,51,0.2)' }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => selectMonth(m)}
+                    >
+                      {m}月
+                    </motion.button>
+                  ))}
+                {pickYear !== null && pickMonth !== null &&
+                  days.map((d) => (
+                    <motion.button
+                      key={d}
+                      className="py-2 rounded-lg text-sm font-heading font-semibold"
+                      style={{ backgroundColor: '#FFFCF7', color: '#5C4033', border: '1px solid rgba(92,64,51,0.2)' }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => selectDay(d)}
+                    >
+                      {d}日
+                    </motion.button>
+                  ))}
+                {years.length === 0 && (
+                  <p className="col-span-4 text-center py-4 text-xs" style={{ color: '#A09890' }}>暂无动态记录</p>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -402,25 +476,53 @@ const HomePage: React.FC = () => {
 
   // Image viewer state
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerItems, setViewerItems] = useState<MediaItem[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerEntry, setViewerEntry] = useState<TimelineEntry | null>(null);
 
   const openImageViewer = (entry: TimelineEntry, images: string[], idx: number) => {
-    setViewerImages(images);
+    setViewerItems(images.map((url) => ({ url, type: 'photo' as const })));
     setViewerIndex(idx);
     setViewerEntry(entry);
     setViewerOpen(true);
   };
 
+  const handleJumpToDate = (year: number, month?: number, day?: number) => {
+    // Build a selector to find the matching entry
+    let selector = `[data-date^="${year}-`;
+    if (month !== undefined) {
+      const mm = String(month).padStart(2, '0');
+      selector += `${mm}`;
+      if (day !== undefined) {
+        const dd = String(day).padStart(2, '0');
+        selector += `-${dd}`;
+      }
+    }
+    selector += '"]';
+    const el = document.querySelector(selector);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const activeBaby = babies.find((b) => b.id === activeBabyId);
-  const babyAge = activeBaby ? Math.floor((Date.now() - new Date(activeBaby.birthday).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const babyAgeDisplay = activeBaby ? (() => {
+    const birth = new Date(activeBaby.birthday);
+    const totalDays = Math.floor((Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24));
+    if (totalDays < 0) return '';
+    const years = Math.floor(totalDays / 365);
+    const months = Math.floor((totalDays % 365) / 30);
+    const days = totalDays % 365 % 30;
+    const parts: string[] = [];
+    if (years > 0) parts.push(`${years}岁`);
+    if (months > 0) parts.push(`${months}个月`);
+    if (days > 0 || parts.length === 0) parts.push(`${days}天`);
+    return `${activeBaby.name}已经${parts.join('')}啦`;
+  })() : '';
 
   // Filtered timeline
   const filteredTimeline = useMemo(() => {
     switch (filter.type) {
-      case 'featured': return timeline.filter((e) => e.featured);
-      case 'member': return timeline.filter((e) => e.authorName === filter.name);
       case 'content': return timeline.filter((e) => e.type === filter.contentType);
       default: return timeline;
     }
@@ -463,14 +565,14 @@ const HomePage: React.FC = () => {
                 {activeBaby ? `${activeBaby.name}的成长记录` : '宝宝时光'}
               </h1>
               <p className="text-xs font-heading" style={{ color: '#8B7355' }}>
-                {babyAge > 0 ? `${activeBaby?.name}已经${babyAge}天啦` : '记录每一个珍贵瞬间'}
+                {babyAgeDisplay || '记录每一个珍贵瞬间'}
               </p>
             </div>
           </div>
         </div>
 
         {/* Filter Bar */}
-        <FilterBar filter={filter} onChange={setFilter} />
+        <FilterBar filter={filter} onChange={setFilter} timeline={timeline} onJumpToDate={handleJumpToDate} />
       </div>
 
       {/* Timeline */}
@@ -489,7 +591,7 @@ const HomePage: React.FC = () => {
             </motion.div>
           ) : (
             <motion.div
-              key={filter.type + (filter.type === 'member' ? filter.name : filter.type === 'content' ? filter.contentType : '')}
+              key={filter.type === 'content' ? filter.contentType : 'all'}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -505,10 +607,9 @@ const HomePage: React.FC = () => {
       <BottomNav />
 
       {/* Image Viewer */}
-      <AnimatePresence>
-        {viewerOpen && viewerEntry && (
+      {viewerOpen && viewerEntry && (
           <ImageViewer
-            images={viewerImages}
+            items={viewerItems}
             initialIndex={viewerIndex}
             onClose={() => setViewerOpen(false)}
             date={viewerEntry.date}
@@ -516,8 +617,7 @@ const HomePage: React.FC = () => {
             babyName={activeBaby?.name}
             babyBirthday={activeBaby?.birthday}
           />
-        )}
-      </AnimatePresence>
+      )}
     </div>
   );
 };

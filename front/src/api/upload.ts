@@ -36,5 +36,7 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   }
 
   const data = await res.json() as { code: number; message: string; data: UploadResult };
-  return data.data;
+  // 返回完整 URL（相对路径拼接 base）
+  const raw = data.data;
+  return { ...raw, url: raw.url.startsWith('http') ? raw.url : (BASE_URL + raw.url) };
 }
