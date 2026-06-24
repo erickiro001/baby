@@ -18,6 +18,8 @@ export default function App() {
   const [phase, setPhase] = useState<AppPhase>('splash');
   const currentPage = useStore((s) => s.currentPage);
   const isLoggedIn = useStore((s) => s.isLoggedIn);
+  const dataSource = useStore((s) => s.dataSource);
+  const fetchError = useStore((s) => s.fetchError);
 
   // 启动时检查 token 持久化，自动登录
   useEffect(() => {
@@ -95,6 +97,27 @@ export default function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
+            {/* Data source indicator */}
+            {dataSource === 'demo' && (
+              <motion.div
+                className="fixed top-2 left-1/2 -translate-x-1/2 z-[100] px-3 py-1 rounded-full text-[10px] font-heading"
+                style={{ backgroundColor: '#FFF4E1', color: '#8B7355', border: '1px solid rgba(92,64,51,0.3)' }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                演示模式 · 数据未持久化
+              </motion.div>
+            )}
+            {fetchError && (
+              <motion.div
+                className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] px-3 py-1 rounded-full text-[10px] font-heading max-w-[90vw] truncate"
+                style={{ backgroundColor: '#FF8A8A', color: '#FFFCF7' }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {fetchError}
+              </motion.div>
+            )}
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentPage}

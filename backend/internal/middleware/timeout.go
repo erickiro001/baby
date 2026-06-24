@@ -1,40 +1,21 @@
 package middleware
 
 import (
+	"context"
 	"time"
-
-	"baby-backend/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
-// RequestTimeout sets a deadline on the request context.
-// If the handler doesn't complete within the timeout, the request is aborted with 504.
+// RequestTimeout injects a context deadline into each request.
+// Handlers that respect c.Request.Context() will stop when the deadline expires.
+// For hard timeout enforcement, use http.Server ReadTimeout/WriteTimeout instead.
 func RequestTimeout(d time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		done := make(chan struct{})
-		timer := time.AfterFunc(d, func() {
-			close(done)
-		})
-		defer timer.Stop()
+		ctx, cancel := context.WithTimeout(c.Request.Context(), d)
+		defer cancel()
 
-		go func() {
-			c.Next()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			// request completed or timed out
-		case <-c.Request.Context().Done():
-			// client disconnected
-		}
-
-		if c.Writer.Written() {
-			return
-		}
-
-		// If we get here, the handler didn't write a response — timeout
-		utils.Error(c, 504, 504, "request timeout")
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
 	}
 }

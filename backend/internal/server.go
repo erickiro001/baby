@@ -52,6 +52,7 @@ func Run(cfg *config.Config) {
 	capsuleHandler := handlers.NewCapsuleHandler(capsuleSvc)
 	milestoneHandler := handlers.NewMilestoneHandler(milestoneSvc)
 	creativeWorkHandler := handlers.NewCreativeWorkHandler(creativeWorkSvc)
+	uploadHandler := handlers.NewUploadHandler(cfg)
 
 	// Setup Gin
 	gin.SetMode(gin.ReleaseMode)
@@ -63,13 +64,15 @@ func Run(cfg *config.Config) {
 		swagger.GET("/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
+	// Static file serving for uploaded files
+	r.Static("/uploads", cfg.UploadDir)
+
 	// Global middleware — applies to ALL routes
 	r.Use(middleware.RequestID())                      // 1. tag every request
 	r.Use(gin.Logger())                                // 2. log with request_id
 	r.Use(gin.Recovery())                              // 3. panic recovery
 	r.Use(middleware.RequestTimeout(30 * time.Second)) // 4. 30s deadline per request
 	r.Use(middleware.CORS())                           // 5. cross-origin
-	r.Use(middleware.SizeLimit(1 << 20))               // 6. 1 MB max body
 
 	// Health check
 	r.GET("/api/health", func(c *gin.Context) {
@@ -78,7 +81,7 @@ func Run(cfg *config.Config) {
 
 	// API v1
 	v1 := r.Group("/api/v1")
-	v1.Use(middleware.SecurityHeaders())                             // API-only: security headers
+	v1.Use(middleware.SecurityHeaders())                             // security headers
 	v1.Use(middleware.HSTS(0))                                       // API-only: HSTS
 	v1.Use(middleware.CSP("default-src 'none'; frame-ancestors 'none'")) // API-only: CSP
 	v1.Use(middleware.NoCache())                                     // API-only: no caching
@@ -91,9 +94,17 @@ func Run(cfg *config.Config) {
 			auth.POST("/login", authHandler.Login)
 		}
 
-		// Protected routes
+		// File upload — independent, 10MB, no JSON body size limit
+		uploadGroup := v1.Group("/upload")
+		uploadGroup.Use(middleware.JWTAuth())
+		{
+			uploadGroup.POST("", uploadHandler.Upload)
+		}
+
+		// Protected routes (1MB JSON body limit)
 		protected := v1.Group("")
 		protected.Use(middleware.JWTAuth())
+		protected.Use(middleware.SizeLimit(1 << 20)) // 1 MB for JSON APIs
 		{
 			// Auth
 			protected.GET("/profile", authHandler.Profile)

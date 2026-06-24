@@ -17,6 +17,19 @@ import * as familyApi from '@/api/family';
 /* ═══════════════════════════════════════════
    Helpers
    ═══════════════════════════════════════════ */
+const FILE_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
+/** 将相对路径（以 / 开头）拼接后端域名 */
+function fixUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) return path;
+  return FILE_BASE + path;
+}
+
+function fixUrls(paths: string[]): string[] {
+  return (paths || []).map(fixUrl);
+}
+
 function convertEntry(e: timelineApi.TimelineEntry): TimelineEntry {
   return {
     id: String(e.id),
@@ -27,9 +40,9 @@ function convertEntry(e: timelineApi.TimelineEntry): TimelineEntry {
     babyId: String(e.baby_id),
     date: e.date,
     description: e.description || '',
-    images: (e.images as string[]) || [],
-    imageUrl: e.image_url || '',
-    videoUrl: (e as Record<string, unknown>).video_url as string | undefined,
+    images: fixUrls(e.images || []),
+    imageUrl: fixUrl(e.image_url || ''),
+    videoUrl: fixUrl((e as Record<string, unknown>).video_url as string || ''),
     likes: e.likes,
     liked: !!(e.liked),
     featured: e.featured,
@@ -88,8 +101,8 @@ function convertCreativeWork(w: worksApi.CreativeWork): CreativeWork {
     title: w.title,
     type: w.type as CreativeWork['type'],
     description: w.description || '',
-    images: (w.images as string[]) || [],
-    imageUrl: w.image_url || '',
+    images: fixUrls(w.images || []),
+    imageUrl: fixUrl(w.image_url || ''),
     date: w.date,
     createdAt: w.created_at,
   };
@@ -99,7 +112,7 @@ function convertAlbum(a: albumsApi.Album): EventAlbum {
   return {
     id: String(a.id),
     title: a.title,
-    coverImage: a.cover_image || '',
+    coverImage: fixUrl(a.cover_image || ''),
     photoCount: a.photo_count || 0,
     createdAt: a.created_at,
     description: a.description || '',

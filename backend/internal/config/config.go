@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	ServerPort  string
-	DBPath      string
-	JWTSecret   string
-	JWTExpire   string // e.g. "24h"
+	ServerPort string
+	DBPath     string
+	JWTSecret  string
+	JWTExpire  string // e.g. "24h"
+	UploadDir  string
 }
 
 func Load() *Config {
@@ -21,6 +22,7 @@ func Load() *Config {
 		DBPath:     getEnv("DB_PATH", "./data/baby.db"),
 		JWTSecret:  getEnv("JWT_SECRET", "change-me-in-production"),
 		JWTExpire:  getEnv("JWT_EXPIRE", "24h"),
+		UploadDir:  getEnv("UPLOAD_DIR", "./data/uploads"),
 	}
 }
 

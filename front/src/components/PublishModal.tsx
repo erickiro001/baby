@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, ImagePlus, Camera, Video, PenLine, Play, Trash2 } from 'lucide-react';
+import { X, ImagePlus, Camera, Video, PenLine, Play, Trash2, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { uploadFile } from '@/api/upload';
 import type { ContentType, TimelineEntry } from '@/types';
 
 interface PublishModalProps {
@@ -24,11 +25,14 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
   const setCurrentPage = useStore((s) => s.setCurrentPage);
 
   const [description, setDescription] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  // Store raw File objects (not base64 data URLs). They get uploaded to server before submit.
+  const [imageFiles, setImageFiles] = useState<{ file: File; preview: string }[]>([]);
   const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoFileName, setVideoFileName] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
 
@@ -38,12 +42,12 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
     const files = e.target.files;
     if (!files) return;
     const limit = 9;
-    Array.from(files).slice(0, limit - images.length).forEach((file) => {
+    Array.from(files).slice(0, limit - imageFiles.length).forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result;
         if (typeof result === 'string') {
-          setImages((prev) => [...prev, result]);
+          setImageFiles((prev) => [...prev, { file, preview: result }]);
         }
       };
       reader.readAsDataURL(file);
@@ -53,6 +57,7 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setVideoFile(file);
     setVideoFileName(file.name);
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -64,8 +69,8 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
     reader.readAsDataURL(file);
   };
 
-  const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
-  const removeVideo = () => { setVideoUrl(''); setVideoFileName(''); };
+  const removeImage = (idx: number) => setImageFiles((prev) => prev.filter((_, i) => i !== idx));
+  const removeVideo = () => { setVideoUrl(''); setVideoFile(null); setVideoFileName(''); };
 
   const addTag = () => {
     const raw = tagInput.trim().replace(/^#/, '');
@@ -76,11 +81,49 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
   const canSubmit = (() => {
     if (type === 'text') return description.trim().length > 0;
     if (type === 'video') return videoUrl.length > 0;
-    return images.length > 0;
+    return imageFiles.length > 0;
   })();
 
-  const handleSubmit = () => {
-    if (!activeBabyId || !canSubmit) return;
+  /** Upload all images/video to server, return their URLs */
+  const uploadMedia = async (): Promise<{ imageUrls: string[]; videoUrlStr: string }> => {
+    setUploading(true);
+    try {
+      // Upload images in parallel
+      const imageResults = await Promise.all(
+        imageFiles.map((item) => uploadFile(item.file))
+      );
+      const imageUrls = imageResults.map((r) => r.url);
+
+      // Upload video if present
+      let videoUrlStr = '';
+      if (videoFile) {
+        const result = await uploadFile(videoFile);
+        videoUrlStr = result.url;
+      }
+
+      return { imageUrls, videoUrlStr };
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!activeBabyId || !canSubmit || uploading) return;
+
+    let imageUrls: string[] = [];
+    let uploadedVideoUrl = '';
+
+    // Upload media files to server first
+    if (imageFiles.length > 0 || videoFile) {
+      try {
+        const result = await uploadMedia();
+        imageUrls = result.imageUrls;
+        uploadedVideoUrl = result.videoUrlStr;
+      } catch (err) {
+        // Upload failed — the error will be shown by the UI via uploading state
+        return;
+      }
+    }
 
     const base = {
       id: `t_${Date.now()}`,
@@ -99,13 +142,13 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
 
     let entry: TimelineEntry;
     if (type === 'photo') {
-      entry = { ...base, type: 'photo' as ContentType, images };
+      entry = { ...base, type: 'photo' as ContentType, images: imageUrls };
     } else if (type === 'video') {
       entry = {
         ...base,
         type: 'video' as ContentType,
-        videoUrl,
-        imageUrl: images[0] || undefined,
+        videoUrl: uploadedVideoUrl,
+        imageUrl: imageUrls[0] || undefined,
       };
     } else {
       entry = { ...base, type: 'text' as ContentType };
@@ -179,9 +222,9 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
                   {/* Optional cover image */}
                   <label className="text-xs font-heading block" style={{ color: '#8B7355' }}>封面图（可选）</label>
                   <div className="flex flex-wrap gap-2">
-                    {images.map((img, idx) => (
+                    {imageFiles.map((img, idx) => (
                       <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
-                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <img src={img.preview} alt="" className="w-full h-full object-cover" />
                         <motion.button
                           className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: 'rgba(255,138,138,0.9)' }}
@@ -192,7 +235,7 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
                         </motion.button>
                       </div>
                     ))}
-                    {images.length < 1 && (
+                    {imageFiles.length < 1 && (
                       <label className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer shrink-0" style={{ border: '1.5px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
                         <ImagePlus size={18} color="#8B7355" />
                         <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>封面</span>
@@ -219,9 +262,9 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
                 照片（最多9张，必选）
               </label>
               <div className="flex flex-wrap gap-2">
-                {images.map((img, idx) => (
+                {imageFiles.map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={img.preview} alt="" className="w-full h-full object-cover" />
                     <motion.button
                       className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: 'rgba(255,138,138,0.9)' }}
@@ -232,7 +275,7 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
                     </motion.button>
                   </div>
                 ))}
-                {images.length < 9 && (
+                {imageFiles.length < 9 && (
                   <label className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer shrink-0" style={{ border: '1.5px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
                     <ImagePlus size={18} color="#8B7355" />
                     <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>添加</span>
@@ -299,17 +342,19 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
 
           {/* Submit */}
           <motion.button
-            className="w-full py-3 rounded-full font-heading font-semibold"
+            className="w-full py-3 rounded-full font-heading font-semibold text-base flex items-center justify-center gap-2"
             style={{
-              backgroundColor: canSubmit ? '#FFD6E5' : '#F0EBE4',
+              backgroundColor: canSubmit && !uploading ? '#FFD6E5' : '#F0EBE4',
               border: '2px solid #5C4033',
-              color: canSubmit ? '#5C4033' : '#A09890',
-              opacity: canSubmit ? 1 : 0.7,
+              color: canSubmit && !uploading ? '#5C4033' : '#A09890',
+              opacity: canSubmit && !uploading ? 1 : 0.7,
             }}
-            whileTap={canSubmit ? { scale: 0.97 } : {}}
+            whileTap={canSubmit && !uploading ? { scale: 0.97 } : {}}
             onClick={handleSubmit}
+            disabled={uploading}
           >
-            发布
+            {uploading && <Loader2 size={18} className="animate-spin" />}
+            {uploading ? '上传中...' : '发布'}
           </motion.button>
         </div>
       </motion.div>

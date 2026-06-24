@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import type { EntryComment } from '@/types';
 import { smartTimeDisplay } from '@/lib/timeFormat';
 
 const avatarColor = (name: string) => {
@@ -47,14 +46,7 @@ const CommentsDrawer: React.FC = () => {
 
   const handleSend = () => {
     if (!inputText.trim() || !selectedEntryId) return;
-    const newComment: EntryComment = {
-      id: `c_${Date.now()}`,
-      authorName: user?.name || '我',
-      authorAvatar: '',
-      text: inputText.trim(),
-      timestamp: new Date().toISOString(),
-    };
-    addComment(selectedEntryId, newComment);
+    addComment(selectedEntryId, inputText.trim());
     setInputText('');
   };
 

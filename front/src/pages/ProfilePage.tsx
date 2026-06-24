@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera, Share2, ChevronRight, LogOut,
   Copy, Check, Shield, Download, X,
-  Link2, UserPlus,
+  Link2, UserPlus, Loader2,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { uploadFile } from '@/api/upload';
 import BottomNav from '@/components/BottomNav';
 import type { Baby } from '@/types';
 
@@ -30,6 +31,8 @@ const BabyProfileSection: React.FC = () => {
   const [editForm, setEditForm] = useState<Partial<Baby>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const getLatestRecord = (babyId: string) => {
     return healthRecords
@@ -46,6 +49,7 @@ const BabyProfileSection: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setAvatarFile(file);
       const reader = new FileReader();
       reader.onload = (ev) => {
         const result = ev.target?.result as string;
@@ -56,20 +60,31 @@ const BabyProfileSection: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editBaby && editForm.name?.trim()) {
-      updateBaby(editBaby.id, {
-        name: editForm.name.trim(),
-        birthday: editForm.birthday,
-        gender: editForm.gender,
-        bloodType: editForm.bloodType,
-        birthWeight: editForm.birthWeight,
-        birthHeight: editForm.birthHeight,
-        notes: editForm.notes?.trim(),
-        avatar: editForm.avatar,
-      });
+      setSaving(true);
+      try {
+        let avatarUrl = editForm.avatar || '';
+        if (avatarFile) {
+          const result = await uploadFile(avatarFile);
+          avatarUrl = result.url;
+        }
+        await updateBaby(editBaby.id, {
+          name: editForm.name.trim(),
+          birthday: editForm.birthday,
+          gender: editForm.gender,
+          bloodType: editForm.bloodType,
+          birthWeight: editForm.birthWeight,
+          birthHeight: editForm.birthHeight,
+          notes: editForm.notes?.trim(),
+          avatar: avatarUrl,
+        });
+      } finally {
+        setSaving(false);
+      }
       setEditBaby(null);
       setPreviewAvatar(null);
+      setAvatarFile(null);
     }
   };
 
@@ -186,7 +201,10 @@ const BabyProfileSection: React.FC = () => {
                 {/* Notes */}
                 <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>备注</label><textarea value={editForm.notes || ''} onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))} rows={2} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none resize-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
 
-                <motion.button className="w-full py-3 rounded-full font-heading font-semibold" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={handleSave}>保存</motion.button>
+                <motion.button className="w-full py-3 rounded-full font-heading font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033', opacity: saving ? 0.7 : 1 }} whileTap={saving ? {} : { scale: 0.97 }} disabled={saving} onClick={handleSave}>
+                  {saving && <Loader2 size={18} className="animate-spin" />}
+                  {saving ? '保存中...' : '保存'}
+                </motion.button>
               </div>
             </motion.div>
           </>
@@ -350,15 +368,21 @@ const ProfilePage: React.FC = () => {
   const [showInvite, setShowInvite] = useState(false);
   const userAvatarRef = useRef<HTMLInputElement>(null);
 
-  const handleUserAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUserAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    // Show preview immediately
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
       setUser({ ...user, avatar: result });
     };
     reader.readAsDataURL(file);
+    // Upload to server in background
+    try {
+      const result = await uploadFile(file);
+      setUser({ ...user, avatar: result.url });
+    } catch { /* preview stays, server will get the URL on next save */ }
   };
 
   return (
