@@ -1,0 +1,94 @@
+@import '@fontsource/jua';
+@import '@fontsource/quicksand/400.css';
+@import '@fontsource/quicksand/500.css';
+@import '@fontsource/quicksand/600.css';
+@import '@fontsource/quicksand/700.css';
+@import '@fontsource-variable/noto-sans-sc';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 100% 98.4%;
+    --foreground: 20 28% 28%;
+    --card: 40 100% 98.4%;
+    --card-foreground: 20 28% 28%;
+    --popover: 40 100% 98.4%;
+    --popover-foreground: 20 28% 28%;
+    --primary: 340 100% 92%;
+    --primary-foreground: 20 28% 28%;
+    --secondary: 40 100% 94%;
+    --secondary-foreground: 20 28% 28%;
+    --muted: 30 12% 60%;
+    --muted-foreground: 30 12% 60%;
+    --accent: 195 60% 79%;
+    --accent-foreground: 20 28% 28%;
+    --destructive: 0 100% 77%;
+    --destructive-foreground: 40 100% 98.4%;
+    --border: 20 28% 28%;
+    --input: 20 28% 28%;
+    --ring: 340 100% 92%;
+    --radius: 0.625rem;
+    --sidebar-background: 40 100% 98.4%;
+    --sidebar-foreground: 20 28% 28%;
+    --sidebar-primary: 340 100% 92%;
+    --sidebar-primary-foreground: 20 28% 28%;
+    --sidebar-accent: 40 100% 94%;
+    --sidebar-accent-foreground: 20 28% 28%;
+    --sidebar-border: 20 28% 28%;
+    --sidebar-ring: 340 100% 92%;
+
+    --cream: #FFFCF7;
+    --baby-pink: #FFD6E5;
+    --baby-pink-dark: #FFB8D5;
+    --sky-blue: #A8D8EA;
+    --soft-blue: #B8D4E3;
+    --warm-yellow: #FFF4E1;
+    --warm-brown: #5C4033;
+    --light-brown: #8B7355;
+    --soft-gray: #A09890;
+    --tag-red: #FF8A8A;
+  }
+
+  body {
+    font-family: 'Noto Sans SC Variable', 'Quicksand', sans-serif;
+    background-color: var(--cream);
+    color: var(--warm-brown);
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Jua', 'ZCOOL QingKe HuangYou', 'Noto Sans SC Variable', sans-serif;
+  }
+
+  .font-heading {
+    font-family: 'Quicksand', 'Noto Sans SC Variable', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Noto Sans SC Variable', 'Quicksand', sans-serif;
+  }
+
+  .text-stroke {
+    -webkit-text-stroke: 1.5px var(--warm-brown);
+    paint-order: stroke fill;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
