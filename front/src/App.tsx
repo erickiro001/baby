@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/store/useStore';
+import { getProfile } from '@/api/auth';
 import SplashPage from '@/pages/SplashPage';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
@@ -18,6 +19,24 @@ export default function App() {
   const currentPage = useStore((s) => s.currentPage);
   const isLoggedIn = useStore((s) => s.isLoggedIn);
 
+  // 启动时检查 token 持久化，自动登录
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    getProfile()
+      .then(() => {
+        useStore.getState().login();
+        setPhase('main');
+        useStore.getState().fetchInitialData();
+      })
+      .catch(() => {
+        // token 过期，清除残留
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      });
+  }, []);
+
   const handleEnter = () => {
     // 如果已经登录过，直接进首页
     if (isLoggedIn) {
@@ -30,6 +49,8 @@ export default function App() {
   const handleLogin = () => {
     useStore.getState().login();
     setPhase('main');
+    // 异步加载后端数据
+    useStore.getState().fetchInitialData();
   };
 
   const renderMainPage = () => {

@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Star, Trash2, Flag, X, Image, Play, FileText, Award } from 'lucide-react';
+import { Heart, MessageCircle, Star, Trash2, Flag, X, Image, Play, FileText, Award, VolumeX, Volume2, Maximize, Minimize } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { smartTimeDisplay } from '@/lib/timeFormat';
 import BottomNav from '@/components/BottomNav';
 import CommentsDrawer from '@/components/CommentsDrawer';
+import ImageViewer from '@/components/ImageViewer';
 import type { TimelineEntry, ContentType } from '@/types';
 
 type FilterMode = { type: 'all' } | { type: 'featured' } | { type: 'member'; name: string } | { type: 'content'; contentType: ContentType };
@@ -140,38 +141,149 @@ const ActionBar: React.FC<{ entry: TimelineEntry }> = ({ entry }) => {
 };
 
 /* ─── Photo Grid Card ─── */
-const PhotoGridCard: React.FC<{ entry: TimelineEntry; index: number }> = ({ entry, index }) => {
+const PhotoGridCard: React.FC<{ entry: TimelineEntry; index: number; onImageClick: (entry: TimelineEntry, images: string[], idx: number) => void }> = ({ entry, index, onImageClick }) => {
   const images = entry.images || [];
   const count = images.length;
+
+  const imageEl = (src: string, i: number, className: string) => (
+    <div key={i} className={`${className} rounded-lg overflow-hidden cursor-pointer`} onClick={(e) => { e.stopPropagation(); onImageClick(entry, images, i); }}>
+      <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+    </div>
+  );
+
   const renderGrid = () => {
-    if (count === 1) return <div className="px-3.5 pb-2"><div className="rounded-lg overflow-hidden"><img src={images[0]} alt="" className="w-full aspect-[4/3] object-cover" loading="lazy" /></div></div>;
-    if (count === 2) return <div className="px-3.5 pb-2 grid grid-cols-2 gap-1">{images.map((img, i) => <div key={i} className="rounded-lg overflow-hidden aspect-square"><img src={img} alt="" className="w-full h-full object-cover" loading="lazy" /></div>)}</div>;
-    if (count <= 4) return <div className="px-3.5 pb-2 grid grid-cols-2 gap-1">{images.map((img, i) => <div key={i} className="rounded-lg overflow-hidden aspect-square"><img src={img} alt="" className="w-full h-full object-cover" loading="lazy" /></div>)}</div>;
-    return <div className="px-3.5 pb-2 grid grid-cols-3 gap-1">{images.slice(0, 9).map((img, i) => <div key={i} className="relative rounded-lg overflow-hidden aspect-square"><img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />{i === 8 && count > 9 && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-white font-heading font-bold text-base">+{count - 9}</span></div>}</div>)}</div>;
+    if (count === 1) return <div className="px-3.5 pb-2"><div className="rounded-lg overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); onImageClick(entry, images, 0); }}><img src={images[0]} alt="" className="w-full aspect-[4/3] object-cover" loading="lazy" /></div></div>;
+    if (count === 2) return <div className="px-3.5 pb-2 grid grid-cols-2 gap-1">{images.map((img, i) => imageEl(img, i, 'aspect-square'))}</div>;
+    if (count <= 4) return <div className="px-3.5 pb-2 grid grid-cols-2 gap-1">{images.map((img, i) => imageEl(img, i, 'aspect-square'))}</div>;
+    return <div className="px-3.5 pb-2 grid grid-cols-3 gap-1">{images.slice(0, 9).map((img, i) => (
+      <div key={i} className="relative rounded-lg overflow-hidden aspect-square cursor-pointer" onClick={(e) => { e.stopPropagation(); onImageClick(entry, images, i); }}>
+        <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+        {i === 8 && count > 9 && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-white font-heading font-bold text-base">+{count - 9}</span></div>}
+      </div>
+    ))}</div>;
   };
   return <CardWrapper entry={entry} index={index}><AuthorRow entry={entry} /><p className="text-[15px] font-body leading-relaxed px-3.5 pb-2" style={{ color: '#5C4033' }}>{entry.description}</p>{renderGrid()}<TagRow tags={entry.tags} /><ActionBar entry={entry} /></CardWrapper>;
 };
 
 /* ─── Video Card ─── */
-const VideoCard: React.FC<{ entry: TimelineEntry; index: number }> = ({ entry, index }) => (
-  <CardWrapper entry={entry} index={index}>
-    <AuthorRow entry={entry} />
-    <p className="text-[15px] font-body leading-relaxed px-3.5 pb-2" style={{ color: '#5C4033' }}>{entry.description}</p>
-    {entry.imageUrl && (
-      <div className="px-3.5 pb-2 relative">
-        <div className="rounded-lg overflow-hidden aspect-video relative">
-          <img src={entry.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <motion.div className="w-12 h-12 rounded-full flex items-center justify-center bg-white/85 border-2 border-[#5C4033]" whileTap={{ scale: 0.9 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#5C4033"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-            </motion.div>
+const VideoCard: React.FC<{ entry: TimelineEntry; index: number }> = ({ entry, index }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(true);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPlaying(true);
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  const toggleFullscreen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const v = videoRef.current;
+    if (!v) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      v.requestFullscreen();
+    }
+  };
+
+  // If we have a real video URL, render video player
+  if (entry.videoUrl) {
+    return (
+      <CardWrapper entry={entry} index={index}>
+        <AuthorRow entry={entry} />
+        <p className="text-[15px] font-body leading-relaxed px-3.5 pb-2" style={{ color: '#5C4033' }}>{entry.description}</p>
+        <div className="px-3.5 pb-2">
+          <div className="relative rounded-lg overflow-hidden bg-black" onClick={togglePlay}>
+            <video
+              ref={videoRef}
+              src={entry.videoUrl}
+              className="w-full aspect-video object-contain"
+              playsInline
+              webkit-playsinline="true"
+              x5-video-player-type="h5"
+              x5-video-player-fullscreen="true"
+              x5-video-orientation="portraint"
+              muted={muted}
+              loop
+              onEnded={() => setPlaying(false)}
+              onPause={() => setPlaying(false)}
+              onPlay={() => setPlaying(true)}
+            />
+            {/* Play overlay */}
+            {!playing && (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+                <motion.div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.9)', border: '2px solid #5C4033' }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Play size={20} color="#5C4033" fill="#5C4033" className="ml-0.5" />
+                </motion.div>
+              </div>
+            )}
+            {/* Mute toggle */}
+            <motion.button
+              className="absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleMute}
+            >
+              {muted ? <VolumeX size={14} color="#fff" /> : <Volume2 size={14} color="#fff" />}
+            </motion.button>
+            {/* Fullscreen toggle */}
+            <motion.button
+              className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleFullscreen}
+            >
+              <Maximize size={14} color="#fff" />
+            </motion.button>
           </div>
         </div>
-      </div>
-    )}
-    <TagRow tags={entry.tags} /><ActionBar entry={entry} />
-  </CardWrapper>
-);
+        <TagRow tags={entry.tags} /><ActionBar entry={entry} />
+      </CardWrapper>
+    );
+  }
+
+  // Fallback: only cover image (no video source)
+  return (
+    <CardWrapper entry={entry} index={index}>
+      <AuthorRow entry={entry} />
+      <p className="text-[15px] font-body leading-relaxed px-3.5 pb-2" style={{ color: '#5C4033' }}>{entry.description}</p>
+      {entry.imageUrl && (
+        <div className="px-3.5 pb-2 relative">
+          <div className="rounded-lg overflow-hidden aspect-video relative">
+            <img src={entry.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+              <motion.div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.85)', border: '2px solid #5C4033' }} whileTap={{ scale: 0.9 }}>
+                <Play size={20} color="#5C4033" fill="#5C4033" className="ml-0.5" />
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      )}
+      <TagRow tags={entry.tags} /><ActionBar entry={entry} />
+    </CardWrapper>
+  );
+};
 
 /* ─── Text Card ─── */
 const TextCard: React.FC<{ entry: TimelineEntry; index: number }> = ({ entry, index }) => (
@@ -288,6 +400,19 @@ const HomePage: React.FC = () => {
   const activeBabyId = useStore((s) => s.activeBabyId);
   const [filter, setFilter] = useState<FilterMode>({ type: 'all' });
 
+  // Image viewer state
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerEntry, setViewerEntry] = useState<TimelineEntry | null>(null);
+
+  const openImageViewer = (entry: TimelineEntry, images: string[], idx: number) => {
+    setViewerImages(images);
+    setViewerIndex(idx);
+    setViewerEntry(entry);
+    setViewerOpen(true);
+  };
+
   const activeBaby = babies.find((b) => b.id === activeBabyId);
   const babyAge = activeBaby ? Math.floor((Date.now() - new Date(activeBaby.birthday).getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
@@ -303,11 +428,11 @@ const HomePage: React.FC = () => {
 
   const renderCard = (entry: TimelineEntry, index: number) => {
     switch (entry.type) {
-      case 'photo': return <PhotoGridCard key={entry.id} entry={entry} index={index} />;
+      case 'photo': return <PhotoGridCard key={entry.id} entry={entry} index={index} onImageClick={openImageViewer} />;
       case 'video': return <VideoCard key={entry.id} entry={entry} index={index} />;
       case 'text': return <TextCard key={entry.id} entry={entry} index={index} />;
       case 'milestone': return <MilestoneCard key={entry.id} entry={entry} index={index} />;
-      default: return <PhotoGridCard key={entry.id} entry={entry} index={index} />;
+      default: return <PhotoGridCard key={entry.id} entry={entry} index={index} onImageClick={openImageViewer} />;
     }
   };
 
@@ -378,6 +503,21 @@ const HomePage: React.FC = () => {
 
       <CommentsDrawer />
       <BottomNav />
+
+      {/* Image Viewer */}
+      <AnimatePresence>
+        {viewerOpen && viewerEntry && (
+          <ImageViewer
+            images={viewerImages}
+            initialIndex={viewerIndex}
+            onClose={() => setViewerOpen(false)}
+            date={viewerEntry.date}
+            description={viewerEntry.description}
+            babyName={activeBaby?.name}
+            babyBirthday={activeBaby?.birthday}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

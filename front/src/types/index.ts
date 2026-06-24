@@ -72,6 +72,7 @@ export interface TimelineEntry {
   description: string;
   images?: string[];
   imageUrl?: string;
+  videoUrl?: string;
   likes: number;
   liked: boolean;
   comments: EntryComment[];

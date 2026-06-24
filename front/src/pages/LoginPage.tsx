@@ -1,26 +1,36 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, User, Sparkles } from 'lucide-react';
+import { Lock, User, Sparkles, Loader2 } from 'lucide-react';
+import { login, getErrorMessage } from '@/api/auth';
 
 const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
-  const handleLogin = () => {
-    if (username !== 'ycc') {
-      setError('账号不存在');
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      setError('请输入账号和密码');
       triggerShake();
       return;
     }
-    if (password !== '789520') {
-      setError('密码错误');
-      triggerShake();
-      return;
-    }
+
+    setLoading(true);
     setError('');
-    onLogin();
+
+    try {
+      const result = await login(username.trim(), password);
+      localStorage.setItem('token', result.token);
+      localStorage.setItem('user', JSON.stringify(result.user));
+      onLogin();
+    } catch (err) {
+      setError(getErrorMessage(err, '登录失败，请重试'));
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const triggerShake = () => {
@@ -50,7 +60,7 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           <div
             className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl"
             style={{
-              border: shake && error === '账号不存在' ? '2px solid #FF8A8A' : '1.5px solid #5C4033',
+              border: shake ? '2px solid #FF8A8A' : '1.5px solid #5C4033',
               backgroundColor: '#FFFCF7',
               transition: 'border-color 0.2s',
             }}
@@ -74,7 +84,7 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
           <div
             className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl"
             style={{
-              border: shake && error === '密码错误' ? '2px solid #FF8A8A' : '1.5px solid #5C4033',
+              border: shake ? '2px solid #FF8A8A' : '1.5px solid #5C4033',
               backgroundColor: '#FFFCF7',
               transition: 'border-color 0.2s',
             }}
@@ -101,12 +111,14 @@ const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
         {/* Login Button */}
         <motion.button
-          className="w-full py-3.5 rounded-full font-heading font-semibold text-base mt-4"
-          style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }}
-          whileTap={{ scale: 0.97 }}
+          className="w-full py-3.5 rounded-full font-heading font-semibold text-base mt-4 flex items-center justify-center gap-2"
+          style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033', opacity: loading ? 0.7 : 1 }}
+          whileTap={loading ? {} : { scale: 0.97 }}
           onClick={handleLogin}
+          disabled={loading}
         >
-          登录
+          {loading && <Loader2 size={18} className="animate-spin" />}
+          {loading ? '登录中...' : '登录'}
         </motion.button>
 
         {/* Hint */}

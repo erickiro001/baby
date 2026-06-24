@@ -1,0 +1,1461 @@
+basePath: /api/v1
+definitions:
+  baby-backend_internal_models.Baby:
+    properties:
+      avatar:
+        type: string
+      birth_height:
+        type: string
+      birth_weight:
+        type: string
+      birthday:
+        description: '"2006-01-02"'
+        type: string
+      blood_type:
+        type: string
+      created_at:
+        type: string
+      gender:
+        description: '"boy" | "girl"'
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      notes:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  baby-backend_internal_models.Capsule:
+    properties:
+      content:
+        type: string
+      content_type:
+        description: '"text" | "photo" | "video"'
+        type: string
+      created_at:
+        type: string
+      created_date:
+        type: string
+      id:
+        type: integer
+      is_opened:
+        type: boolean
+      title:
+        type: string
+      unlock_date:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  baby-backend_internal_models.CreativeWork:
+    properties:
+      baby_id:
+        type: integer
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      type:
+        description: '"drawing" | "handcraft" | "lego" | "sandart" | "photo" | "video"
+          | "other"'
+        type: string
+    type: object
+  baby-backend_internal_models.EntryComment:
+    properties:
+      author_avatar:
+        type: string
+      author_name:
+        type: string
+      entry_id:
+        type: integer
+      id:
+        type: integer
+      text:
+        type: string
+      timestamp:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  baby-backend_internal_models.EventAlbum:
+    properties:
+      cover_image:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      photo_count:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  baby-backend_internal_models.FamilyMember:
+    properties:
+      avatar:
+        type: string
+      id:
+        type: integer
+      is_owner:
+        type: boolean
+      joined_at:
+        type: string
+      name:
+        type: string
+      permission:
+        description: '"edit" | "view"'
+        type: string
+      role:
+        type: string
+      space_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  baby-backend_internal_models.FamilySpace:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      invite_code:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/baby-backend_internal_models.FamilyMember'
+        type: array
+      name:
+        type: string
+      owner_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  baby-backend_internal_models.HealthRecord:
+    properties:
+      baby_id:
+        type: integer
+      created_at:
+        type: string
+      date:
+        type: string
+      head_circumference:
+        type: number
+      height:
+        type: number
+      id:
+        type: integer
+      note:
+        type: string
+      weight:
+        type: number
+    type: object
+  baby-backend_internal_models.InviteRecord:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      permission:
+        type: string
+      role:
+        type: string
+      space_id:
+        type: integer
+      status:
+        description: '"active" | "used" | "expired"'
+        type: string
+      used_at:
+        type: string
+      used_by:
+        type: integer
+    type: object
+  baby-backend_internal_models.Milestone:
+    properties:
+      baby_id:
+        type: integer
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      type:
+        description: '"milestone" | "event"'
+        type: string
+    type: object
+  baby-backend_internal_models.TimelineEntry:
+    properties:
+      author_avatar:
+        type: string
+      author_id:
+        type: integer
+      author_name:
+        type: string
+      baby_id:
+        type: integer
+      comments:
+        description: Relations (loaded via Preload)
+        items:
+          $ref: '#/definitions/baby-backend_internal_models.EntryComment'
+        type: array
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      featured:
+        type: boolean
+      id:
+        type: integer
+      image_url:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      likes:
+        type: integer
+      milestone_title:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      type:
+        description: '"photo" | "video" | "text" | "milestone"'
+        type: string
+      updated_at:
+        type: string
+    type: object
+  baby-backend_internal_services.AuthResult:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/baby-backend_internal_services.UserSafeView'
+    type: object
+  baby-backend_internal_services.CreateAlbumInput:
+    properties:
+      cover_image:
+        type: string
+      description:
+        type: string
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  baby-backend_internal_services.CreateBabyInput:
+    properties:
+      avatar:
+        type: string
+      birth_height:
+        type: string
+      birth_weight:
+        type: string
+      birthday:
+        type: string
+      blood_type:
+        type: string
+      gender:
+        enum:
+        - boy
+        - girl
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+    required:
+    - birthday
+    - gender
+    - name
+    type: object
+  baby-backend_internal_services.CreateCapsuleInput:
+    properties:
+      content:
+        type: string
+      content_type:
+        enum:
+        - text
+        - photo
+        - video
+        type: string
+      created_date:
+        type: string
+      title:
+        type: string
+      unlock_date:
+        type: string
+    required:
+    - content
+    - content_type
+    - created_date
+    - title
+    - unlock_date
+    type: object
+  baby-backend_internal_services.CreateCreativeWorkInput:
+    properties:
+      baby_id:
+        type: integer
+      date:
+        type: string
+      description:
+        type: string
+      image_url:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      type:
+        enum:
+        - drawing
+        - handcraft
+        - lego
+        - sandart
+        - photo
+        - video
+        - other
+        type: string
+    required:
+    - baby_id
+    - date
+    - title
+    - type
+    type: object
+  baby-backend_internal_services.CreateEntryInput:
+    properties:
+      baby_id:
+        type: integer
+      date:
+        type: string
+      description:
+        type: string
+      image_url:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      milestone_title:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      type:
+        enum:
+        - photo
+        - video
+        - text
+        - milestone
+        type: string
+    required:
+    - baby_id
+    - date
+    - type
+    type: object
+  baby-backend_internal_services.CreateHealthInput:
+    properties:
+      baby_id:
+        type: integer
+      date:
+        type: string
+      head_circumference:
+        type: number
+      height:
+        type: number
+      note:
+        type: string
+      weight:
+        type: number
+    required:
+    - baby_id
+    - date
+    type: object
+  baby-backend_internal_services.CreateInviteInput:
+    properties:
+      code:
+        type: string
+      permission:
+        enum:
+        - edit
+        - view
+        type: string
+      role:
+        type: string
+    required:
+    - code
+    - permission
+    type: object
+  baby-backend_internal_services.CreateMilestoneInput:
+    properties:
+      baby_id:
+        type: integer
+      date:
+        type: string
+      description:
+        type: string
+      title:
+        type: string
+      type:
+        enum:
+        - milestone
+        - event
+        type: string
+    required:
+    - baby_id
+    - date
+    - title
+    - type
+    type: object
+  baby-backend_internal_services.CreateSpaceInput:
+    properties:
+      invite_code:
+        type: string
+      name:
+        type: string
+      owner_name:
+        type: string
+    required:
+    - invite_code
+    - name
+    - owner_name
+    type: object
+  baby-backend_internal_services.LoginInput:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  baby-backend_internal_services.RegisterInput:
+    properties:
+      email:
+        type: string
+      password:
+        maxLength: 128
+        minLength: 6
+        type: string
+      username:
+        maxLength: 64
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  baby-backend_internal_services.UpdateBabyInput:
+    properties:
+      avatar:
+        type: string
+      birth_height:
+        type: string
+      birth_weight:
+        type: string
+      birthday:
+        type: string
+      blood_type:
+        type: string
+      gender:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+    type: object
+  baby-backend_internal_services.UserSafeView:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      username:
+        type: string
+    type: object
+  baby-backend_internal_utils.APIResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: 宝宝时光 · 家庭馆 — 宝宝成长记录与家庭共享后端 API
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com
+  title: Baby Backend API
+  version: "1.0"
+paths:
+  /albums:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.EventAlbum'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 相册列表
+      tags:
+      - Album
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 相册信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateAlbumInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.EventAlbum'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 创建相册
+      tags:
+      - Album
+  /albums/{id}/photos:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 相册 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 动态 ID 列表
+        in: body
+        name: input
+        required: true
+        schema:
+          properties:
+            entry_ids:
+              items:
+                type: integer
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 从相册移除照片
+      tags:
+      - Album
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 相册 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 动态 ID 列表
+        in: body
+        name: input
+        required: true
+        schema:
+          properties:
+            entry_ids:
+              items:
+                type: integer
+              type: array
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 添加照片到相册
+      tags:
+      - Album
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 支持用户名或邮箱登录，成功返回 JWT token。
+      parameters:
+      - description: 登录信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_services.AuthResult'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      summary: 用户登录
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 创建新帐号，返回 JWT token。用户名和邮箱均需唯一。
+      parameters:
+      - description: 注册信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.RegisterInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_services.AuthResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      summary: 用户注册
+      tags:
+      - Auth
+  /babies:
+    get:
+      description: 获取当前用户下的所有宝宝。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.Baby'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 宝宝列表
+      tags:
+      - Baby
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的宝宝档案。
+      parameters:
+      - description: 宝宝信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateBabyInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.Baby'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 添加宝宝
+      tags:
+      - Baby
+  /babies/{id}:
+    delete:
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除宝宝
+      tags:
+      - Baby
+    get:
+      description: 按 ID 获取单个宝宝。
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.Baby'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 宝宝详情
+      tags:
+      - Baby
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新字段
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.UpdateBabyInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.Baby'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 编辑宝宝
+      tags:
+      - Baby
+  /babies/{id}/health:
+    get:
+      description: 获取指定宝宝的所有健康记录，按日期升序。
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.HealthRecord'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 健康记录列表
+      tags:
+      - Health
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 健康数据
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateHealthInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.HealthRecord'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 添加健康记录
+      tags:
+      - Health
+  /babies/{id}/health/{hid}:
+    delete:
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 健康记录 ID
+        in: path
+        name: hid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除健康记录
+      tags:
+      - Health
+  /babies/{id}/milestones:
+    get:
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.Milestone'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 里程碑列表
+      tags:
+      - Milestone
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 里程碑
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateMilestoneInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.Milestone'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 添加里程碑
+      tags:
+      - Milestone
+  /babies/{id}/works:
+    get:
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.CreativeWork'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 创意作品列表
+      tags:
+      - CreativeWork
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 作品信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateCreativeWorkInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.CreativeWork'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 添加创意作品
+      tags:
+      - CreativeWork
+  /babies/{id}/works/{wid}:
+    delete:
+      parameters:
+      - description: 宝宝 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 作品 ID
+        in: path
+        name: wid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除创意作品
+      tags:
+      - CreativeWork
+  /capsules:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.Capsule'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 时间胶囊列表
+      tags:
+      - Capsule
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 胶囊内容
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateCapsuleInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.Capsule'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 创建时间胶囊
+      tags:
+      - Capsule
+  /capsules/{id}/open:
+    post:
+      parameters:
+      - description: 胶囊 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 开启胶囊
+      tags:
+      - Capsule
+  /family:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.FamilySpace'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 家庭空间列表
+      tags:
+      - Family
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateSpaceInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.FamilySpace'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 创建家庭空间
+      tags:
+      - Family
+  /family/{id}/invites:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 邀请码信息
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateInviteInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.InviteRecord'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 创建邀请码
+      tags:
+      - Family
+  /profile:
+    get:
+      description: 返回已登录用户的 id 和 username。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 当前用户信息
+      tags:
+      - Auth
+  /timeline:
+    get:
+      description: 按 baby_id 查询时间线动态，支持筛选：type=all|featured|member|content，member
+        时需传 name，content 时需传 content_type。
+      parameters:
+      - description: 宝宝 ID
+        in: query
+        name: baby_id
+        required: true
+        type: integer
+      - description: '筛选类型: all | featured | member | content'
+        in: query
+        name: type
+        type: string
+      - description: 当 type=member 时，按成员名筛选
+        in: query
+        name: name
+        type: string
+      - description: '当 type=content 时，内容类型: photo | video | text | milestone'
+        in: query
+        name: content_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/baby-backend_internal_models.TimelineEntry'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 时间线列表
+      tags:
+      - Timeline
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 动态内容
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/baby-backend_internal_services.CreateEntryInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.TimelineEntry'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 发布动态
+      tags:
+      - Timeline
+  /timeline/{id}:
+    delete:
+      parameters:
+      - description: 动态 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除动态
+      tags:
+      - Timeline
+    get:
+      parameters:
+      - description: 动态 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.TimelineEntry'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 单条动态详情
+      tags:
+      - Timeline
+  /timeline/{id}/comments:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 动态 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 评论内容
+        in: body
+        name: input
+        required: true
+        schema:
+          properties:
+            text:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.EntryComment'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 添加评论
+      tags:
+      - Timeline
+  /timeline/{id}/comments/{commentId}:
+    delete:
+      parameters:
+      - description: 动态 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 评论 ID
+        in: path
+        name: commentId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除评论
+      tags:
+      - Timeline
+  /timeline/{id}/featured:
+    patch:
+      parameters:
+      - description: 动态 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/baby-backend_internal_models.TimelineEntry'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 切换精选状态
+      tags:
+      - Timeline
+  /timeline/{id}/like:
+    post:
+      description: 同一条动态重复调用会在点赞 / 取消之间切换。返回当前 liked 状态。
+      parameters:
+      - description: 动态 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/baby-backend_internal_utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: 点赞 / 取消点赞
+      tags:
+      - Timeline
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT Bearer Token. Format: "Bearer <token>"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

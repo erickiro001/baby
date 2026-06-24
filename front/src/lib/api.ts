@@ -74,8 +74,11 @@ export const api = {
   put: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
     request<T>(endpoint, { method: 'PUT', body, ...options }),
 
-  delete: <T>(endpoint: string, options?: RequestOptions) =>
-    request<T>(endpoint, { method: 'DELETE', ...options }),
+  patch: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(endpoint, { method: 'PATCH', body, ...options }),
+
+  delete: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(endpoint, { method: 'DELETE', body, ...options }),
 };
 
 export { BASE_URL };

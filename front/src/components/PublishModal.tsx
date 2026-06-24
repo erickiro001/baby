@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, ImagePlus, Camera, Video, PenLine, Play } from 'lucide-react';
+import { X, ImagePlus, Camera, Video, PenLine, Play, Trash2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import type { ContentType, TimelineEntry } from '@/types';
 
@@ -25,29 +25,47 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
 
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoFileName, setVideoFileName] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const meta = TYPE_META[type];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const limit = type === 'video' ? 1 : 9;
+    const limit = 9;
     Array.from(files).slice(0, limit - images.length).forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result;
         if (typeof result === 'string') {
-          setImages((prev) => (type === 'video' ? [result] : [...prev, result]));
+          setImages((prev) => [...prev, result]);
         }
       };
       reader.readAsDataURL(file);
     });
   };
 
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoFileName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        setVideoUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
+  const removeVideo = () => { setVideoUrl(''); setVideoFileName(''); };
 
   const addTag = () => {
     const raw = tagInput.trim().replace(/^#/, '');
@@ -57,7 +75,8 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
 
   const canSubmit = (() => {
     if (type === 'text') return description.trim().length > 0;
-    return images.length > 0; // photo/video need at least 1 image
+    if (type === 'video') return videoUrl.length > 0;
+    return images.length > 0;
   })();
 
   const handleSubmit = () => {
@@ -82,7 +101,12 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
     if (type === 'photo') {
       entry = { ...base, type: 'photo' as ContentType, images };
     } else if (type === 'video') {
-      entry = { ...base, type: 'video' as ContentType, imageUrl: images[0] };
+      entry = {
+        ...base,
+        type: 'video' as ContentType,
+        videoUrl,
+        imageUrl: images[0] || undefined,
+      };
     } else {
       entry = { ...base, type: 'text' as ContentType };
     }
@@ -123,21 +147,81 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
             正在为 <span style={{ color: '#5C4033', fontWeight: 600 }}>{activeBaby?.name || '宝宝'}</span> 记录
           </p>
 
-          {/* Image upload (photo & video) */}
-          {type !== 'text' && (
+          {/* Video upload (video mode) */}
+          {type === 'video' && (
             <div>
               <label className="text-xs font-heading mb-1.5 block" style={{ color: '#8B7355' }}>
-                {type === 'video' ? '视频封面（必选）' : '照片（最多9张，必选）'}
+                视频文件（必选）
+              </label>
+              {videoUrl ? (
+                <div className="space-y-2">
+                  {/* Video preview */}
+                  <div className="relative rounded-xl overflow-hidden bg-black" style={{ border: '1.5px solid #5C4033' }}>
+                    <video
+                      src={videoUrl}
+                      className="w-full max-h-48 object-contain"
+                      controls
+                      playsInline
+                      webkit-playsinline="true"
+                      x5-video-player-type="h5"
+                    />
+                    <motion.button
+                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: 'rgba(255,138,138,0.9)' }}
+                      whileTap={{ scale: 0.85 }}
+                      onClick={removeVideo}
+                    >
+                      <Trash2 size={13} color="#fff" />
+                    </motion.button>
+                  </div>
+                  <p className="text-[10px] font-body truncate" style={{ color: '#8B7355' }}>{videoFileName}</p>
+
+                  {/* Optional cover image */}
+                  <label className="text-xs font-heading block" style={{ color: '#8B7355' }}>封面图（可选）</label>
+                  <div className="flex flex-wrap gap-2">
+                    {images.map((img, idx) => (
+                      <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <motion.button
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: 'rgba(255,138,138,0.9)' }}
+                          whileTap={{ scale: 0.85 }}
+                          onClick={() => removeImage(idx)}
+                        >
+                          <X size={10} color="#fff" />
+                        </motion.button>
+                      </div>
+                    ))}
+                    {images.length < 1 && (
+                      <label className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer shrink-0" style={{ border: '1.5px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
+                        <ImagePlus size={18} color="#8B7355" />
+                        <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>封面</span>
+                        <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center py-8 rounded-xl cursor-pointer" style={{ border: '2px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
+                  <Video size={32} color="#5C4033" strokeWidth={1.5} />
+                  <span className="text-sm font-heading mt-2" style={{ color: '#5C4033' }}>点击选择视频文件</span>
+                  <span className="text-[10px] font-body mt-1" style={{ color: '#8B7355' }}>支持 MP4、MOV 等格式</span>
+                  <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                </label>
+              )}
+            </div>
+          )}
+
+          {/* Image upload (photo mode) */}
+          {type === 'photo' && (
+            <div>
+              <label className="text-xs font-heading mb-1.5 block" style={{ color: '#8B7355' }}>
+                照片（最多9张，必选）
               </label>
               <div className="flex flex-wrap gap-2">
                 {images.map((img, idx) => (
                   <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
                     <img src={img} alt="" className="w-full h-full object-cover" />
-                    {type === 'video' && (
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                        <Play size={18} color="#fff" fill="#fff" />
-                      </div>
-                    )}
                     <motion.button
                       className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: 'rgba(255,138,138,0.9)' }}
@@ -148,11 +232,11 @@ const PublishModal: React.FC<PublishModalProps> = ({ type, onClose }) => {
                     </motion.button>
                   </div>
                 ))}
-                {(type === 'video' ? images.length < 1 : images.length < 9) && (
+                {images.length < 9 && (
                   <label className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer shrink-0" style={{ border: '1.5px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
                     <ImagePlus size={18} color="#8B7355" />
                     <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>添加</span>
-                    <input ref={fileRef} type="file" accept="image/*" multiple={type === 'photo'} className="hidden" onChange={handleImageUpload} />
+                    <input ref={photoRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
                   </label>
                 )}
               </div>

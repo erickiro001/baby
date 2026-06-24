@@ -29,9 +29,31 @@ func Init(dbPath string) {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Auto-migrate models
-	if err := DB.AutoMigrate(&models.User{}); err != nil {
+	// Auto-migrate all models
+	if err := DB.AutoMigrate(
+		&models.User{},
+		&models.Baby{},
+		&models.FamilySpace{},
+		&models.FamilyMember{},
+		&models.InviteRecord{},
+		&models.TimelineEntry{},
+		&models.EntryComment{},
+		&models.EntryLike{},
+		&models.EventAlbum{},
+		&models.AlbumPhoto{},
+		&models.Milestone{},
+		&models.Capsule{},
+		&models.CreativeWork{},
+		&models.HealthRecord{},
+	); err != nil {
 		log.Fatalf("Failed to auto-migrate: %v", err)
+	}
+
+	// Seed demo data if database is empty
+	var userCount int64
+	DB.Model(&models.User{}).Count(&userCount)
+	if userCount == 0 {
+		seed()
 	}
 
 	log.Println("Database connected and migrated successfully")
