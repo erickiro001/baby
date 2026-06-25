@@ -113,6 +113,21 @@ func (s *AlbumService) UpdateCover(albumID uint, coverImage string) error {
 	return result.Error
 }
 
+func (s *AlbumService) Update(albumID uint, title, description string) (*models.EventAlbum, error) {
+	var album models.EventAlbum
+	if err := database.DB.First(&album, albumID).Error; err != nil {
+		return nil, errors.New("album not found")
+	}
+	if title != "" {
+		album.Title = title
+	}
+	album.Description = description
+	if err := database.DB.Save(&album).Error; err != nil {
+		return nil, err
+	}
+	return &album, nil
+}
+
 type CreateAlbumInput struct {
 	Title       string `json:"title" binding:"required"`
 	CoverImage  string `json:"cover_image"`
@@ -172,6 +187,62 @@ func (s *FamilyService) Update(spaceID uint, name string) error {
 	return database.DB.Model(&models.FamilySpace{}).Where("id = ?", spaceID).Update("name", name).Error
 }
 
+func (s *FamilyService) ListInvites(spaceID uint) ([]models.InviteRecord, error) {
+	var invites []models.InviteRecord
+	err := database.DB.Where("space_id = ? AND status = ?", spaceID, "active").Order("created_at DESC").Find(&invites).Error
+	return invites, err
+}
+
+func (s *FamilyService) Join(code string, userID uint, username string) (*models.FamilySpace, error) {
+	// 查找邀请码
+	var invite models.InviteRecord
+	if err := database.DB.Where("code = ? AND status = ?", code, "active").First(&invite).Error; err != nil {
+		return nil, errors.New("邀请码无效或已过期")
+	}
+
+	// 检查是否已是成员
+	var existing models.FamilyMember
+	if err := database.DB.Where("space_id = ? AND user_id = ?", invite.SpaceID, userID).First(&existing).Error; err == nil {
+		return nil, errors.New("你已经是该家庭的成员")
+	}
+
+	// 获取用户昵称
+	var user models.User
+	displayName := username
+	if err := database.DB.Select("name", "username").First(&user, userID).Error; err == nil {
+		if user.Name != "" {
+			displayName = user.Name
+		}
+	}
+
+	// 创建成员记录
+	member := models.FamilyMember{
+		SpaceID:    invite.SpaceID,
+		UserID:     userID,
+		Name:       displayName,
+		Avatar:     user.Avatar,
+		Role:       invite.Role,
+		Permission: invite.Permission,
+		IsOwner:    false,
+		JoinedAt:   time.Now(),
+	}
+	if err := database.DB.Create(&member).Error; err != nil {
+		return nil, errors.New("加入家庭失败")
+	}
+
+	// 标记邀请已使用
+	database.DB.Model(&invite).Updates(map[string]interface{}{
+		"status":      "used",
+		"used_by":     userID,
+		"used_at":     time.Now(),
+	})
+
+	// 返回带成员的家庭空间
+	var space models.FamilySpace
+	database.DB.Preload("Members").First(&space, invite.SpaceID)
+	return &space, nil
+}
+
 type CreateSpaceInput struct {
 	Name       string `json:"name" binding:"required"`
 	InviteCode string `json:"invite_code" binding:"required"`
@@ -181,7 +252,7 @@ type CreateSpaceInput struct {
 type CreateInviteInput struct {
 	Code       string `json:"code" binding:"required"`
 	Role       string `json:"role"`
-	Permission string `json:"permission" binding:"required,oneof=edit view"`
+	Permission string `json:"permission" binding:"required,oneof=edit upload view"`
 }
 
 // ═══ Capsule ═══
@@ -279,6 +350,7 @@ func (s *CreativeWorkService) Create(input CreateCreativeWorkInput) (*models.Cre
 		Description: input.Description,
 		Images:      input.Images,
 		ImageURL:    input.ImageURL,
+		VideoURL:    input.VideoURL,
 		Date:        input.Date,
 	}
 	err := database.DB.Create(&w).Error
@@ -300,5 +372,6 @@ type CreateCreativeWorkInput struct {
 	Description string   `json:"description"`
 	Images      []string `json:"images"`
 	ImageURL    string   `json:"image_url"`
+	VideoURL    string   `json:"video_url"`
 	Date        string   `json:"date" binding:"required"`
 }

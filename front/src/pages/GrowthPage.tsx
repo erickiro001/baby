@@ -140,8 +140,29 @@ const CreativeWorkCard: React.FC<{ work: CreativeWork; index: number; onDelete: 
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.07, duration: 0.4 }}
     >
-      {/* Image area */}
-      {(work.images && work.images.length > 0) || work.imageUrl ? (
+      {/* Image / Video area */}
+      {work.videoUrl ? (
+        <div className="relative w-full" style={{ aspectRatio: '16 / 9', maxHeight: 360 }}>
+          <video src={work.videoUrl} controls className="w-full h-full object-cover" />
+          {/* Type badge */}
+          <div
+            className="absolute top-3 left-3 px-2.5 py-1 rounded-full flex items-center gap-1"
+            style={{ backgroundColor: t.bg, border: '1.5px solid #5C4033' }}
+          >
+            <span style={{ color: t.color }}>{t.icon}</span>
+            <span className="text-[11px] font-heading font-semibold" style={{ color: '#5C4033' }}>{t.label}</span>
+          </div>
+          {/* Delete button */}
+          <motion.button
+            className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255,252,247,0.9)', border: '1.5px solid #5C4033' }}
+            whileTap={{ scale: 0.85 }}
+            onClick={() => { if (confirm(`删除「${work.title}」？`)) onDelete(work.id); }}
+          >
+            <Trash2 size={12} color="#FF8A8A" />
+          </motion.button>
+        </div>
+      ) : (work.images && work.images.length > 0) || work.imageUrl ? (
         <div className="relative w-full" style={{ aspectRatio: '1 / 1', maxHeight: 360 }}>
           <img
             src={work.images?.[0] || work.imageUrl}
@@ -339,6 +360,8 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string>('');
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -363,6 +386,20 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setImageFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoFile(file);
+    const url = URL.createObjectURL(file);
+    setVideoPreview(url);
+  };
+
+  const removeVideo = () => {
+    setVideoFile(null);
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoPreview('');
+  };
+
   const handleSubmit = async () => {
     if (!title.trim() || !date || !activeBabyId) return;
     setUploading(true);
@@ -374,6 +411,14 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         uploadedUrls.push(result.url);
       } catch { /* skip failed uploads */ }
     }
+    // Upload video
+    let uploadedVideoUrl = '';
+    if (videoFile) {
+      try {
+        const result = await uploadFile(videoFile);
+        uploadedVideoUrl = result.url;
+      } catch { /* skip failed upload */ }
+    }
     addCreativeWork({
       id: `cw_${Date.now()}`,
       babyId: activeBabyId,
@@ -381,6 +426,7 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       type,
       description: description.trim(),
       images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+      videoUrl: uploadedVideoUrl || undefined,
       date,
       createdAt: `${date}T00:00:00`,
     });
@@ -449,9 +495,9 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} />
           </div>
 
-          {/* Image upload */}
+          {/* Photo & Video upload */}
           <div>
-            <label className="text-xs font-heading mb-1.5 block" style={{ color: '#8B7355' }}>作品照片（可选）</label>
+            <label className="text-xs font-heading mb-1.5 block" style={{ color: '#8B7355' }}>作品照片 / 视频（可选）</label>
             <div className="flex flex-wrap gap-2">
               {imagePreview.map((img, idx) => (
                 <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
@@ -466,9 +512,30 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   </motion.button>
                 </div>
               ))}
+              {/* Video thumbnail */}
+              {videoPreview ? (
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
+                  <video src={videoPreview} className="w-full h-full object-cover" />
+                  <motion.button
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(255,138,138,0.9)' }}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={removeVideo}
+                  >
+                    <X size={10} color="#fff" />
+                  </motion.button>
+                </div>
+              ) : (
+                <label className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer shrink-0" style={{ border: '1.5px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
+                  <Video size={16} color="#8B7355" />
+                  <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>视频</span>
+                  <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                </label>
+              )}
+              {/* Add photo button */}
               <label className="w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer shrink-0" style={{ border: '1.5px dashed #5C4033', backgroundColor: 'rgba(92,64,51,0.03)' }}>
                 <ImagePlus size={18} color="#8B7355" />
-                <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>添加</span>
+                <span className="text-[10px] font-heading mt-0.5" style={{ color: '#8B7355' }}>照片</span>
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
               </label>
             </div>

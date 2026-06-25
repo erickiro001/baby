@@ -239,6 +239,7 @@ type CreativeWork struct {
 	Description string      `gorm:"size:1024" json:"description"`
 	Images      StringSlice `gorm:"type:text" json:"images,omitempty"`
 	ImageURL    string      `gorm:"size:512" json:"image_url,omitempty"`
+	VideoURL    string      `gorm:"size:512" json:"video_url,omitempty"`
 	Date        string      `gorm:"size:16;not null" json:"date"`
 	CreatedAt   time.Time   `json:"created_at"`
 }

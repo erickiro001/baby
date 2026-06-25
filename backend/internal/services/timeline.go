@@ -97,7 +97,19 @@ func (s *TimelineService) Delete(id uint) error {
 	if result.RowsAffected == 0 {
 		return errors.New("entry not found")
 	}
-	return result.Error
+	// 清理 album_photos 关联并重新计算各相册的 photo_count
+	database.DB.Where("entry_id = ?", id).Delete(&models.AlbumPhoto{})
+	// 重新计算所有相册的 photo_count（简单方案：全量重算）
+	rows, err := database.DB.Raw(`
+		UPDATE event_albums
+		SET photo_count = (SELECT COUNT(*) FROM album_photos WHERE album_photos.album_id = event_albums.id AND album_photos.deleted_at IS NULL)
+		WHERE deleted_at IS NULL
+	`).Rows()
+	if err != nil {
+		return err
+	}
+	rows.Close()
+	return nil
 }
 
 func (s *TimelineService) ToggleFeatured(id uint) (*models.TimelineEntry, error) {

@@ -42,7 +42,7 @@ export interface FamilyMember {
   name: string;
   avatar: string;
   role: string; // 爸爸/妈妈/爷爷/奶奶等
-  permission: 'edit' | 'view';
+  permission: 'edit' | 'upload' | 'view';
   joinedAt: string;
   isOwner: boolean;
 }
@@ -52,7 +52,7 @@ export interface InviteRecord {
   id: string;
   code: string;
   role: string;
-  permission: 'edit' | 'view';
+  permission: 'edit' | 'upload' | 'view';
   createdAt: string;
   usedBy?: string;
   usedAt?: string;
@@ -133,6 +133,7 @@ export interface CreativeWork {
   description: string;
   images?: string[];
   imageUrl?: string;
+  videoUrl?: string;
   date: string;
   createdAt: string;
 }

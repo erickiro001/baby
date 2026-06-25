@@ -134,3 +134,25 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 	utils.Success(c, profile)
 }
+
+// @Summary      修改密码
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        input body services.ChangePasswordInput true "新旧密码"
+// @Success      200 {object} utils.APIResponse
+// @Security     BearerAuth
+// @Router       /profile/password [put]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	var input services.ChangePasswordInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	userID, _ := c.Get("user_id")
+	if err := h.authService.ChangePassword(userID.(uint), input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.SuccessMessage(c, "密码修改成功")
+}

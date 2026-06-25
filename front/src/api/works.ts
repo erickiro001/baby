@@ -12,6 +12,7 @@ export interface CreativeWork {
   description: string;
   images: string[];
   image_url: string;
+  video_url: string;
   created_at: string;
 }
 
@@ -23,6 +24,7 @@ export interface CreateCreativeWorkInput {
   description?: string;
   images?: string[];
   image_url?: string;
+  video_url?: string;
 }
 
 export async function getWorks(babyId: number): Promise<CreativeWork[]> {

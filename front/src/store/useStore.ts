@@ -104,6 +104,7 @@ function convertCreativeWork(w: worksApi.CreativeWork): CreativeWork {
     description: w.description || '',
     images: fixUrls(w.images || []),
     imageUrl: fixUrl(w.image_url || ''),
+    videoUrl: fixUrl(w.video_url || ''),
     date: w.date,
     createdAt: w.created_at,
   };
@@ -229,7 +230,9 @@ interface AppState {
   toggleFeatured: (entryId: string) => Promise<void>;
 
   createEventAlbum: (album: EventAlbum) => Promise<void>;
+  updateAlbum: (id: string, title: string, description: string) => Promise<void>;
   setAlbumCover: (albumId: string, coverImage: string) => Promise<void>;
+  deleteAlbum: (id: string) => Promise<void>;
   movePhotosToAlbum: (photoIds: string[], albumId: string) => Promise<void>;
 
   addMilestone: (ms: Milestone) => Promise<void>;
@@ -249,7 +252,7 @@ interface AppState {
   togglePhotoSelection: (id: string) => void;
   selectAllPhotos: (ids: string[]) => void;
   clearSelection: () => void;
-  deleteSelectedPhotos: () => void;
+  deleteSelectedPhotos: () => Promise<void>;
 
   openComments: (entryId: string) => void;
   closeComments: () => void;
@@ -587,6 +590,8 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ timeline: s.timeline.filter((e) => e.id !== id) }));
     try {
       await timelineApi.deleteEntry(Number(id));
+      // 删除动态后刷新相册数据（后端会清理关联并重算 photo_count）
+      await get().fetchAlbums();
     } catch { /* 乐观删除，失败可加重试 */ }
   },
 
@@ -666,12 +671,24 @@ export const useStore = create<AppState>((set, get) => ({
   createEventAlbum: async (album) => {
     set((s) => ({ eventAlbums: [...s.eventAlbums, album] }));
     try {
-      await albumsApi.createAlbum({
+      const created = await albumsApi.createAlbum({
         title: album.title,
         cover_image: album.coverImage || undefined,
         description: album.description || undefined,
       });
-    } catch { /* 乐观创建 */ }
+      // 用服务端返回的真实数据替换临时 ID
+      set((s) => ({
+        eventAlbums: s.eventAlbums.map((a) =>
+          a.id === album.id
+            ? convertAlbum(created)
+            : a
+        ),
+      }));
+    } catch (e) {
+      console.error('创建相册失败:', e);
+      // 移除乐观插入的临时数据
+      set((s) => ({ eventAlbums: s.eventAlbums.filter((a) => a.id !== album.id) }));
+    }
   },
   setAlbumCover: async (albumId, coverImage) => {
     // 乐观更新本地
@@ -684,8 +701,27 @@ export const useStore = create<AppState>((set, get) => ({
       await albumsApi.updateAlbumCover(Number(albumId), coverImage);
     } catch { /* 乐观更新 */ }
   },
+  updateAlbum: async (id, title, description) => {
+    set((s) => ({
+      eventAlbums: s.eventAlbums.map((a) =>
+        a.id === id ? { ...a, title, description } : a
+      ),
+    }));
+    try {
+      await albumsApi.updateAlbum(Number(id), { title, description });
+    } catch { /* 乐观更新 */ }
+  },
+  deleteAlbum: async (id) => {
+    set((s) => ({
+      eventAlbums: s.eventAlbums.filter((a) => a.id !== id),
+    }));
+    try {
+      await albumsApi.deleteAlbum(Number(id));
+    } catch { /* 乐观删除 */ }
+  },
   movePhotosToAlbum: async (photoIds, albumId) => {
-    // 乐观更新本地：标记照片已加入相册
+    // 乐观更新本地：标记照片已加入相册 + 更新相册 photo_count
+    const count = photoIds.length;
     set((s) => ({
       timeline: s.timeline.map((e) => {
         if (photoIds.includes(e.id)) {
@@ -694,13 +730,17 @@ export const useStore = create<AppState>((set, get) => ({
         }
         return e;
       }),
+      eventAlbums: s.eventAlbums.map((a) =>
+        a.id === albumId ? { ...a, photoCount: a.photoCount + count } : a
+      ),
     }));
-    // 异步回写后端
+    // 异步回写后端（仅当 albumId 是有效数字时，跳过临时 ID）
+    const albumIdNum = Number(albumId);
+    if (isNaN(albumIdNum) || albumIdNum === 0) return;
     try {
       const numericIds = photoIds.map(Number).filter((n) => !isNaN(n));
       if (numericIds.length > 0) {
-        await albumsApi.addPhotos(Number(albumId), numericIds);
-        // 后端可能已自动设封面，刷新相册列表获取最新数据
+        await albumsApi.addPhotos(albumIdNum, numericIds);
         await get().fetchAlbums();
       }
     } catch { /* 乐观更新 */ }
@@ -817,6 +857,7 @@ export const useStore = create<AppState>((set, get) => ({
         description: work.description || undefined,
         images: work.images,
         image_url: work.imageUrl,
+        video_url: work.videoUrl,
       });
     } catch { /* 乐观创建 */ }
   },
@@ -846,12 +887,19 @@ export const useStore = create<AppState>((set, get) => ({
         : [...s.selectedPhotoIds, id],
     })),
   clearSelection: () => set({ selectedPhotoIds: [] }),
-  deleteSelectedPhotos: () =>
+  deleteSelectedPhotos: async () => {
+    const ids = get().selectedPhotoIds;
     set((s) => ({
-      timeline: s.timeline.filter((e) => !s.selectedPhotoIds.includes(e.id)),
+      timeline: s.timeline.filter((e) => !ids.includes(e.id)),
       selectedPhotoIds: [],
       batchMode: false,
-    })),
+    }));
+    try {
+      await Promise.all(ids.map((id) => timelineApi.deleteEntry(Number(id))));
+      // 删除后刷新相册（后端清理 album_photos 关联并重算 photo_count）
+      await get().fetchAlbums();
+    } catch { /* 乐观删除 */ }
+  },
 
   // ─── 弹窗 ───
   openComments: (entryId) => set({ isCommentsOpen: true, selectedEntryId: entryId }),
@@ -972,6 +1020,19 @@ export const useStore = create<AppState>((set, get) => ({
           activeSpaceId: converted[0].id,
           dataSource: 'server',
         });
+        // 同时拉取邀请记录
+        try {
+          const invites = await familyApi.getInvites(Number(converted[0].id));
+          const convertedInvites = invites.map((i) => ({
+            id: String(i.id),
+            code: i.code,
+            role: i.role,
+            permission: i.permission,
+            createdAt: i.created_at,
+            status: i.status,
+          }));
+          set({ inviteRecords: convertedInvites });
+        } catch { /* 邀请列表加载失败不影响 */ }
       }
     } catch { /* 保留当前数据 */ }
   },

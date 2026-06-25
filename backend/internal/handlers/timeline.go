@@ -195,3 +195,11 @@ func getUserID(c *gin.Context) uint {
 	}
 	return v.(uint)
 }
+
+func getUsername(c *gin.Context) string {
+	v, _ := c.Get("username")
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}

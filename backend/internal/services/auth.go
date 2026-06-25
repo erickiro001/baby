@@ -49,6 +49,11 @@ type UpdateProfileInput struct {
 	Avatar string `json:"avatar" binding:"max=512"`
 }
 
+type ChangePasswordInput struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6,max=128"`
+}
+
 func NewAuthService(jwtExpire time.Duration) *AuthService {
 	return &AuthService{JWTExpireDuration: jwtExpire}
 }
@@ -174,4 +179,20 @@ func (s *AuthService) UpdateProfile(userID uint, input UpdateProfileInput) (*Use
 		Avatar:   user.Avatar,
 		Email:    user.Email,
 	}, nil
+}
+
+func (s *AuthService) ChangePassword(userID uint, input ChangePasswordInput) error {
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return errors.New("user not found")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.OldPassword)); err != nil {
+		return errors.New("原密码错误")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcryptCost)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+	user.PasswordHash = string(hash)
+	return database.DB.Save(&user).Error
 }

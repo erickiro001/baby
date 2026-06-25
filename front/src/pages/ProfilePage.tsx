@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Camera, Share2, ChevronRight, LogOut,
-  Copy, Check, Shield, Download, X,
-  Link2, UserPlus, Loader2,
+  Camera, Key, ChevronRight, LogOut,
+  Copy, Check, X, Loader2, Lock,
+  Link2, UserPlus,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { uploadFile } from '@/api/upload';
@@ -242,7 +242,7 @@ const StatsSection: React.FC = () => {
   );
 };
 
-const FamilySection: React.FC<{ onOpenInvite: () => void }> = ({ onOpenInvite }) => {
+const FamilySection: React.FC<{ onOpenInvite: () => void; onOpenJoin: () => void }> = ({ onOpenInvite, onOpenJoin }) => {
   const familySpaces = useStore((s) => s.familySpaces);
   const activeSpaceId = useStore((s) => s.activeSpaceId);
   const activeSpace = familySpaces.find((sp) => sp.id === activeSpaceId);
@@ -250,9 +250,14 @@ const FamilySection: React.FC<{ onOpenInvite: () => void }> = ({ onOpenInvite })
     <div className="mb-4">
       <div className="flex items-center justify-between mb-3 px-1">
         <h2 className="text-base font-heading font-semibold" style={{ color: '#5C4033' }}>我的家庭</h2>
-        <motion.button className="flex items-center gap-1 text-xs font-heading font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: '#FFD6E5', color: '#5C4033', border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.95 }} onClick={onOpenInvite}>
-          <UserPlus size={12} />邀请家人
-        </motion.button>
+        <div className="flex gap-2">
+          <motion.button className="flex items-center gap-1 text-xs font-heading font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: '#A8D8EA', color: '#5C4033', border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.95 }} onClick={onOpenJoin}>
+            <Link2 size={12} />加入家庭
+          </motion.button>
+          <motion.button className="flex items-center gap-1 text-xs font-heading font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: '#FFD6E5', color: '#5C4033', border: '1.5px solid #5C4033' }} whileTap={{ scale: 0.95 }} onClick={onOpenInvite}>
+            <UserPlus size={12} />邀请家人
+          </motion.button>
+        </div>
       </div>
       {activeSpace && (
         <div className="rounded-xl p-4" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.06) 0 2px 8px' }}>
@@ -282,7 +287,8 @@ const InviteModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const createInvite = useStore((s) => s.createInvite);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [newRole, setNewRole] = useState('妈妈');
-  const [newPermission, setNewPermission] = useState<'edit' | 'view'>('edit');
+  const [newPermission, setNewPermission] = useState<'edit' | 'upload' | 'view'>('upload');
+  const presetRoles = ['妈妈', '爸爸', '爷爷', '奶奶', '外公', '外婆', '哥哥', '姐姐'];
 
   const activeInvites = inviteRecords.filter((i) => i.status === 'active');
 
@@ -308,15 +314,27 @@ const InviteModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4">
           <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: '#FFF4E1', border: '1.5px dashed #5C4033' }}>
             <h4 className="text-sm font-heading font-semibold mb-2" style={{ color: '#5C4033' }}>生成新邀请</h4>
-            <div className="flex gap-2 mb-2 flex-wrap">{['妈妈', '爷爷', '奶奶', '外公', '外婆', '其他'].map((role) => <button key={role} className="px-2.5 py-1.5 rounded-lg text-xs font-heading border-2" style={{ backgroundColor: newRole === role ? '#FFD6E5' : '#FFFCF7', borderColor: newRole === role ? '#5C4033' : '#A09890', color: '#5C4033' }} onClick={() => setNewRole(role)}>{role}</button>)}</div>
-            <div className="flex gap-2 mb-3">{(['edit', 'view'] as const).map((p) => <button key={p} className="flex-1 py-2 rounded-lg text-xs font-heading font-semibold border-2" style={{ backgroundColor: newPermission === p ? '#FFD6E5' : '#FFFCF7', borderColor: newPermission === p ? '#5C4033' : '#A09890', color: '#5C4033' }} onClick={() => setNewPermission(p)}>{p === 'edit' ? '可编辑' : '仅查看'}</button>)}</div>
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {['妈妈', '爸爸', '爷爷', '奶奶', '外公', '外婆', '哥哥', '姐姐'].map((role) => (
+                <button key={role} className="px-2.5 py-1.5 rounded-lg text-xs font-heading border-2" style={{ backgroundColor: newRole === role ? '#FFD6E5' : '#FFFCF7', borderColor: newRole === role ? '#5C4033' : '#A09890', color: '#5C4033' }} onClick={() => setNewRole(role)}>{role}</button>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="或自定义身份（如：叔叔、姑姑…）"
+              value={presetRoles.includes(newRole) ? '' : newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-xs font-heading outline-none mb-2"
+              style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }}
+            />
+            <div className="flex gap-2 mb-3">{(['edit', 'upload', 'view'] as const).map((p) => <button key={p} className="flex-1 py-2 rounded-lg text-xs font-heading font-semibold border-2" style={{ backgroundColor: newPermission === p ? '#FFD6E5' : '#FFFCF7', borderColor: newPermission === p ? '#5C4033' : '#A09890', color: '#5C4033' }} onClick={() => setNewPermission(p)}>{p === 'edit' ? '可编辑' : p === 'upload' ? '可上传' : '仅查看'}</button>)}</div>
             <motion.button className="w-full py-2.5 rounded-full text-sm font-heading font-semibold" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={handleCreateInvite}><div className="flex items-center justify-center gap-2"><Link2 size={14} />生成邀请码</div></motion.button>
           </div>
           <h4 className="text-sm font-heading font-semibold mb-2" style={{ color: '#5C4033' }}>有效的邀请</h4>
           {activeInvites.length === 0 ? <p className="text-xs font-body text-center py-4" style={{ color: '#A09890' }}>暂无有效邀请</p> : (
             <div className="space-y-2">{activeInvites.map((invite) => (
               <div key={invite.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033' }}>
-                <div className="flex-1"><div className="flex items-center gap-2"><span className="text-lg font-heading font-bold tracking-wider" style={{ color: '#5C4033' }}>{invite.code}</span><span className="text-[10px] px-2 py-0.5 rounded-full font-heading" style={{ backgroundColor: '#A8D8EA', color: '#5C4033' }}>{invite.role}</span></div><p className="text-[11px]" style={{ color: '#8B7355' }}>{invite.permission === 'edit' ? '可编辑权限' : '仅查看权限'}</p></div>
+                <div className="flex-1"><div className="flex items-center gap-2"><span className="text-lg font-heading font-bold tracking-wider" style={{ color: '#5C4033' }}>{invite.code}</span><span className="text-[10px] px-2 py-0.5 rounded-full font-heading" style={{ backgroundColor: '#A8D8EA', color: '#5C4033' }}>{invite.role}</span></div><p className="text-[11px]" style={{ color: '#8B7355' }}>{invite.permission === 'edit' ? '可编辑' : invite.permission === 'upload' ? '可上传（不可删除）' : '仅查看'}</p></div>
                 <motion.button className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: copiedCode === invite.code ? '#A8D8EA' : '#FFD6E5' }} whileTap={{ scale: 0.9 }} onClick={() => handleCopy(invite.code)}>{copiedCode === invite.code ? <Check size={16} color="#5C4033" /> : <Copy size={16} color="#5C4033" />}</motion.button>
               </div>
             ))}</div>
@@ -328,27 +346,116 @@ const InviteModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
+/* ─── Join Family Modal ─── */
+const JoinFamilyModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const [code, setCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState('');
+  const fetchFamily = useStore((s) => s.fetchFamily);
+
+  const handleJoin = async () => {
+    if (!code.trim()) { setError('请输入邀请码'); return; }
+    setJoining(true);
+    setError('');
+    try {
+      const { joinFamily } = await import('@/api/family');
+      await joinFamily(code.trim().toUpperCase());
+      await fetchFamily();
+      onClose();
+    } catch (e: unknown) {
+      setError((e as { data?: { message?: string } })?.data?.message || '加入失败，请检查邀请码');
+    }
+    setJoining(false);
+  };
+
+  return (
+    <>
+      <motion.div className="fixed inset-0 z-[60]" style={{ backgroundColor: 'rgba(92,64,51,0.15)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+      <motion.div className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl overflow-hidden" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', borderBottom: 'none' }} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+        <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+          <h3 className="text-lg font-heading font-semibold" style={{ color: '#5C4033' }}>加入家庭</h3>
+          <button onClick={onClose}><X size={18} color="#5C4033" /></button>
+        </div>
+        <div className="px-4 py-6 space-y-4">
+          <p className="text-sm font-body text-center" style={{ color: '#8B7355' }}>输入家人分享给你的邀请码，即可加入家庭空间</p>
+          <input
+            type="text"
+            placeholder="输入邀请码（如 TANG2026）"
+            value={code}
+            onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(''); }}
+            className="w-full px-4 py-3 rounded-xl text-center text-lg font-heading font-bold tracking-widest outline-none"
+            style={{ border: error ? '2px solid #FF8A8A' : '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }}
+            autoFocus
+          />
+          {error && <p className="text-xs font-body text-center" style={{ color: '#FF8A8A' }}>{error}</p>}
+          <motion.button
+            className="w-full py-3 rounded-full font-heading font-semibold text-sm disabled:opacity-50"
+            style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleJoin}
+            disabled={joining}
+          >
+            {joining ? '加入中…' : '确认加入'}
+          </motion.button>
+          <p className="text-[10px] font-body text-center" style={{ color: '#A09890' }}>加入后你可以在家庭空间中查看和记录宝宝的成长</p>
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
 const SettingsSection: React.FC = () => {
   const [showConfirm, setShowConfirm] = useState(false);
-  const menuItems = [
-    { icon: Shield, label: '隐私设置', desc: '谁可以看到你的内容' },
-    { icon: Download, label: '数据导出', desc: '导出所有记录到本地' },
-    { icon: Share2, label: '分享应用', desc: '推荐给朋友' },
-  ];
+  const [showPassword, setShowPassword] = useState(false);
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [changing, setChanging] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdOk, setPwdOk] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!oldPwd || !newPwd) { setPwdError('请填写所有密码字段'); return; }
+    if (newPwd.length < 6) { setPwdError('新密码至少6位'); return; }
+    setChanging(true);
+    setPwdError('');
+    try {
+      const { changePassword } = await import('@/api/auth');
+      await changePassword(oldPwd, newPwd);
+      setPwdOk(true);
+      setTimeout(() => { setShowPassword(false); setOldPwd(''); setNewPwd(''); setPwdOk(false); setPwdError(''); }, 1500);
+    } catch (e: unknown) {
+      setPwdError((e as { data?: { message?: string } })?.data?.message || (e as { message?: string })?.message || '修改失败');
+    }
+    setChanging(false);
+  };
+
   return (
     <div className="mb-4">
       <h2 className="text-base font-heading font-semibold mb-3 px-1" style={{ color: '#5C4033' }}>设置</h2>
       <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.06) 0 2px 8px' }}>
-        {menuItems.map((item) => (
-          <motion.button key={item.label} className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-[#FFF4E1] transition-colors" whileTap={{ scale: 0.98 }} onClick={() => item.label === '数据导出' ? alert('数据导出中...') : null}>
-            <item.icon size={18} color="#5C4033" strokeWidth={2} /><div className="flex-1 min-w-0"><p className="text-sm font-body" style={{ color: '#5C4033' }}>{item.label}</p><p className="text-[11px]" style={{ color: '#A09890' }}>{item.desc}</p></div><ChevronRight size={16} color="#A09890" />
-          </motion.button>
-        ))}
+        <motion.button
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowPassword(true)}
+        >
+          <Key size={18} color="#5C4033" strokeWidth={2} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-body" style={{ color: '#5C4033' }}>修改密码</p>
+          </div>
+          <ChevronRight size={16} color="#A09890" />
+        </motion.button>
         <div className="border-t mx-4" style={{ borderColor: 'rgba(92,64,51,0.1)' }} />
-        <motion.button className="w-full flex items-center gap-3 px-4 py-3.5 text-left" whileTap={{ scale: 0.98 }} onClick={() => setShowConfirm(true)}>
-          <LogOut size={18} color="#FF8A8A" strokeWidth={2} /><span className="text-sm font-body" style={{ color: '#FF8A8A' }}>退出登录</span>
+        <motion.button
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setShowConfirm(true)}
+        >
+          <LogOut size={18} color="#FF8A8A" strokeWidth={2} />
+          <span className="text-sm font-body" style={{ color: '#FF8A8A' }}>退出登录</span>
         </motion.button>
       </div>
+
+      {/* Confirm Logout */}
       <AnimatePresence>
         {showConfirm && (
           <>
@@ -359,6 +466,42 @@ const SettingsSection: React.FC = () => {
               <div className="flex gap-3">
                 <motion.button className="flex-1 py-3 rounded-full font-heading font-semibold text-sm" style={{ backgroundColor: '#FFFCF7', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={() => setShowConfirm(false)}>取消</motion.button>
                 <motion.button className="flex-1 py-3 rounded-full font-heading font-semibold text-sm" style={{ backgroundColor: '#FF8A8A', border: '2px solid #5C4033', color: '#FFFCF7' }} whileTap={{ scale: 0.97 }} onClick={() => { useStore.getState().logout(); setShowConfirm(false); }}>确认</motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Change Password Modal */}
+      <AnimatePresence>
+        {showPassword && (
+          <>
+            <motion.div className="fixed inset-0 z-[60]" style={{ backgroundColor: 'rgba(92,64,51,0.15)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setShowPassword(false); setPwdError(''); }} />
+            <motion.div className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl overflow-hidden" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', borderBottom: 'none' }} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+              <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <h3 className="text-lg font-heading font-semibold" style={{ color: '#5C4033' }}>修改密码</h3>
+                <button onClick={() => { setShowPassword(false); setPwdError(''); }}><X size={18} color="#5C4033" /></button>
+              </div>
+              <div className="px-4 py-4 space-y-3">
+                {pwdOk ? (
+                  <p className="text-center text-sm font-heading font-semibold py-6" style={{ color: '#A8D8EA' }}>密码修改成功</p>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>原密码</label>
+                      <input type="password" placeholder="输入原密码" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>新密码</label>
+                      <input type="password" placeholder="至少 6 位" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} />
+                    </div>
+                    {pwdError && <p className="text-xs text-center" style={{ color: '#FF8A8A' }}>{pwdError}</p>}
+                    <motion.button className="w-full py-3 rounded-full font-heading font-semibold flex items-center justify-center gap-2" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033', opacity: changing ? 0.7 : 1 }} whileTap={changing ? {} : { scale: 0.97 }} disabled={changing} onClick={handleChangePassword}>
+                      {changing && <Loader2 size={18} className="animate-spin" />}
+                      {changing ? '修改中...' : '确认修改'}
+                    </motion.button>
+                  </>
+                )}
               </div>
             </motion.div>
           </>
@@ -376,6 +519,7 @@ const ProfilePage: React.FC = () => {
   const setUser = useStore((s) => s.setUser);
   const familySpaces = useStore((s) => s.familySpaces);
   const [showInvite, setShowInvite] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const userAvatarRef = useRef<HTMLInputElement>(null);
 
   const updateAvatars = (fullUrl: string) => {
@@ -449,10 +593,11 @@ const ProfilePage: React.FC = () => {
         </div>
         <StatsSection />
         <BabyProfileSection />
-        <FamilySection onOpenInvite={() => setShowInvite(true)} />
+        <FamilySection onOpenInvite={() => setShowInvite(true)} onOpenJoin={() => setShowJoin(true)} />
         <SettingsSection />
       </div>
       <AnimatePresence>{showInvite && <InviteModal onClose={() => setShowInvite(false)} />}</AnimatePresence>
+      <AnimatePresence>{showJoin && <JoinFamilyModal onClose={() => setShowJoin(false)} />}</AnimatePresence>
       <BottomNav />
     </div>
   );

@@ -165,6 +165,33 @@ func (h *AlbumHandler) UpdateCover(c *gin.Context) {
 	utils.SuccessMessage(c, "cover updated")
 }
 
+// @Summary      编辑事件相册
+// @Tags         Album
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int  true  "相册 ID"
+// @Param        input body  object{title=string,description=string}  true  "相册信息"
+// @Success      200   {object} utils.APIResponse{data=models.EventAlbum}
+// @Security     BearerAuth
+// @Router       /albums/{id} [patch]
+func (h *AlbumHandler) Update(c *gin.Context) {
+	albumID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var input struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	album, err := h.svc.Update(uint(albumID), input.Title, input.Description)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, album)
+}
+
 // ─────────── Family ───────────
 
 // FamilyHandler handles family spaces.
@@ -248,6 +275,32 @@ func (h *FamilyHandler) Update(c *gin.Context) {
 		return
 	}
 	utils.SuccessMessage(c, "updated")
+}
+
+func (h *FamilyHandler) ListInvites(c *gin.Context) {
+	spaceID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	invites, err := h.svc.ListInvites(uint(spaceID))
+	if err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+	utils.Success(c, invites)
+}
+
+func (h *FamilyHandler) Join(c *gin.Context) {
+	var input struct {
+		Code string `json:"code" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	space, err := h.svc.Join(input.Code, getUserID(c), getUsername(c))
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, space)
 }
 
 // ─────────── Capsule ───────────

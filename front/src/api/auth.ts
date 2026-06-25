@@ -49,6 +49,10 @@ export async function getProfile(): Promise<UserSafeView> {
   return wrapper.data;
 }
 
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  await api.put(`${BASE}/profile/password`, { old_password: oldPassword, new_password: newPassword });
+}
+
 export function getErrorMessage(err: unknown, defaultMsg: string): string {
   if (err && typeof err === 'object') {
     const apiErr = err as ApiError;

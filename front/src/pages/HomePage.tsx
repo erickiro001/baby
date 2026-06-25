@@ -66,9 +66,17 @@ const ActionBar: React.FC<{ entry: TimelineEntry }> = ({ entry }) => {
   const toggleLike = useStore((s) => s.toggleLike);
   const deleteTimelineEntry = useStore((s) => s.deleteTimelineEntry);
   const openComments = useStore((s) => s.openComments);
+  const familySpaces = useStore((s) => s.familySpaces);
+  const activeSpaceId = useStore((s) => s.activeSpaceId);
+  const user = useStore((s) => s.user);
   const [likedAnim, setLikedAnim] = useState(false);
   const handleLike = () => { toggleLike(entry.id); if (!entry.liked) { setLikedAnim(true); setTimeout(() => setLikedAnim(false), 400); } };
   const handleDelete = () => { if (confirm('确定删除这条动态吗？')) { deleteTimelineEntry(entry.id); } };
+
+  // 检查当前用户是否有删除权限
+  const activeSpace = familySpaces.find((s) => s.id === activeSpaceId);
+  const currentMember = activeSpace?.members.find((m) => m.name === user?.name);
+  const canDelete = !currentMember || currentMember.permission === 'edit' || currentMember.isOwner;
 
   return (
     <div className="flex items-center gap-4 px-3.5 py-2.5 border-t" style={{ borderColor: 'rgba(92,64,51,0.06)' }}>
@@ -83,9 +91,11 @@ const ActionBar: React.FC<{ entry: TimelineEntry }> = ({ entry }) => {
         <span className="text-xs font-heading" style={{ color: '#A09890' }}>{entry.comments.length}</span>
       </motion.button>
       <div className="flex-1" />
-      <motion.button className="flex items-center gap-1" whileTap={{ scale: 0.9 }} onClick={handleDelete}>
-        <Trash2 size={15} strokeWidth={1.5} color="#A09890" />
-      </motion.button>
+      {canDelete && (
+        <motion.button className="flex items-center gap-1" whileTap={{ scale: 0.9 }} onClick={handleDelete}>
+          <Trash2 size={15} strokeWidth={1.5} color="#A09890" />
+        </motion.button>
+      )}
     </div>
   );
 };

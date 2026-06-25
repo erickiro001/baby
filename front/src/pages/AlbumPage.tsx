@@ -5,7 +5,7 @@ import { zhCN } from 'date-fns/locale';
 import {
   Search, X, Grid3X3, FolderHeart, CheckSquare,
   Download, Trash2, FolderInput, ChevronLeft, Plus, FolderOpen,
-  Image, Play, Calendar, ImageOff,
+  Image, Play, Calendar, ImageOff, Pencil,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import BottomNav from '@/components/BottomNav';
@@ -77,15 +77,53 @@ const filterChips = [
    ═══════════════════════════════════════════ */
 const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: () => void }> = ({ onOpenAlbum, onBack }) => {
   const eventAlbums = useStore((s) => s.eventAlbums);
+  const deleteAlbum = useStore((s) => s.deleteAlbum);
+  const updateAlbum = useStore((s) => s.updateAlbum);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [actionAlbum, setActionAlbum] = useState<EventAlbum | null>(null);
+  const [editAlbum, setEditAlbum] = useState<EventAlbum | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createEventAlbum = useStore((s) => s.createEventAlbum);
 
   const handleCreate = () => {
     if (!newTitle.trim()) return;
     createEventAlbum({ id: `ea_${Date.now()}`, title: newTitle.trim(), coverImage: '', photoCount: 0, createdAt: new Date().toISOString(), description: newDesc.trim() });
     setShowCreate(false); setNewTitle(''); setNewDesc('');
+  };
+
+  const openEdit = (album: EventAlbum) => {
+    setEditAlbum(album);
+    setEditTitle(album.title);
+    setEditDesc(album.description || '');
+    setActionAlbum(null);
+  };
+
+  const handleEditSave = () => {
+    if (!editAlbum || !editTitle.trim()) return;
+    updateAlbum(editAlbum.id, editTitle.trim(), editDesc.trim());
+    setEditAlbum(null);
+  };
+
+  const handleDelete = () => {
+    if (!actionAlbum) return;
+    if (confirm(`确定删除相册「${actionAlbum.title}」吗？此操作不可撤销。`)) {
+      deleteAlbum(actionAlbum.id);
+    }
+    setActionAlbum(null);
+  };
+
+  const handlePointerDown = (album: EventAlbum) => {
+    timerRef.current = setTimeout(() => {
+      setActionAlbum(album);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 500);
+  };
+  const handlePointerUp = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   };
 
   return (
@@ -106,7 +144,16 @@ const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: 
       <div className="px-4">
         <div className="grid grid-cols-2 gap-3">
           {eventAlbums.map((album, i) => (
-            <motion.button key={album.id} className="rounded-xl overflow-hidden text-left" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.08) 0 2px 8px' }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} whileTap={{ scale: 0.96 }} onClick={() => onOpenAlbum(album)}>
+            <motion.div
+              key={album.id}
+              className="rounded-xl overflow-hidden text-left"
+              style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.08) 0 2px 8px' }}
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+              onPointerDown={() => handlePointerDown(album)}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              onClick={() => { if (!actionAlbum) onOpenAlbum(album); }}
+            >
               <div className="aspect-square relative">
                 {album.coverImage ? (
                   <>
@@ -126,10 +173,11 @@ const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: 
                 </div>
               </div>
               {album.description && <p className="text-[11px] font-body px-2.5 py-2 truncate" style={{ color: '#8B7355' }}>{album.description}</p>}
-            </motion.button>
+            </motion.div>
           ))}
         </div>
       </div>
+
       {/* Create modal */}
       <AnimatePresence>
         {showCreate && (
@@ -144,6 +192,51 @@ const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: 
                 <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>相册名称</label><input type="text" placeholder="例如：周岁生日派对" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
                 <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>描述（可选）</label><input type="text" placeholder="简单描述..." value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
                 <motion.button className="w-full py-3 rounded-full font-heading font-semibold" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={handleCreate}>创建</motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Action Sheet (long press) */}
+      <AnimatePresence>
+        {actionAlbum && (
+          <>
+            <motion.div className="fixed inset-0 z-[60]" style={{ backgroundColor: 'rgba(92,64,51,0.15)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActionAlbum(null)} />
+            <motion.div className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl overflow-hidden" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', borderBottom: 'none' }} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+              <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <h3 className="text-base font-heading font-semibold text-center" style={{ color: '#5C4033' }}>{actionAlbum.title}</h3>
+              </div>
+              <button className="w-full flex items-center gap-3 px-4 py-3.5 border-b" style={{ borderColor: 'rgba(92,64,51,0.1)' }} onClick={() => openEdit(actionAlbum)}>
+                <Pencil size={18} color="#5C4033" />
+                <span className="text-sm font-body" style={{ color: '#5C4033' }}>编辑相册信息</span>
+              </button>
+              <button className="w-full flex items-center gap-3 px-4 py-3.5 border-b" style={{ borderColor: 'rgba(92,64,51,0.1)' }} onClick={handleDelete}>
+                <Trash2 size={18} color="#FF8A8A" />
+                <span className="text-sm font-body" style={{ color: '#FF8A8A' }}>删除相册</span>
+              </button>
+              <div className="px-4 py-3 border-t" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <button className="w-full py-2.5 rounded-full text-sm font-heading font-semibold" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', color: '#5C4033' }} onClick={() => setActionAlbum(null)}>取消</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editAlbum && (
+          <>
+            <motion.div className="fixed inset-0 z-[60]" style={{ backgroundColor: 'rgba(92,64,51,0.15)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditAlbum(null)} />
+            <motion.div className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl overflow-hidden" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', borderBottom: 'none' }} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <h3 className="text-lg font-heading font-semibold flex-1 text-center" style={{ color: '#5C4033' }}>编辑相册</h3>
+                <button onClick={() => setEditAlbum(null)}><X size={18} color="#5C4033" /></button>
+              </div>
+              <div className="px-4 py-4 space-y-3">
+                <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>相册名称</label><input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
+                <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>描述（可选）</label><input type="text" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
+                <motion.button className="w-full py-3 rounded-full font-heading font-semibold" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={handleEditSave}>保存</motion.button>
               </div>
             </motion.div>
           </>

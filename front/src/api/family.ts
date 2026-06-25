@@ -67,3 +67,13 @@ export async function createInvite(spaceId: number, input: CreateInviteInput): P
 export async function updateFamily(spaceId: number, name: string): Promise<void> {
   await api.patch<W<null>>(`${BASE}/family/${spaceId}`, { name });
 }
+
+export async function joinFamily(code: string): Promise<FamilySpace> {
+  const w = await api.post<W<FamilySpace>>(`${BASE}/family/join`, { code });
+  return w.data;
+}
+
+export async function getInvites(spaceId: number): Promise<InviteRecord[]> {
+  const w = await api.get<W<InviteRecord[]>>(`${BASE}/family/${spaceId}/invites`);
+  return w.data;
+}

@@ -41,3 +41,17 @@ export async function removePhotos(albumId: number, entryIds: number[]): Promise
 export async function updateAlbumCover(albumId: number, coverImage: string): Promise<void> {
   await api.put(`${BASE}/albums/${albumId}/cover`, { cover_image: coverImage });
 }
+
+export interface UpdateAlbumInput {
+  title?: string;
+  description?: string;
+}
+
+export async function updateAlbum(albumId: number, input: UpdateAlbumInput): Promise<Album> {
+  const w = await api.patch<W<Album>>(`${BASE}/albums/${albumId}`, input);
+  return w.data;
+}
+
+export async function deleteAlbum(albumId: number): Promise<void> {
+  await api.delete(`${BASE}/albums/${albumId}`);
+}
