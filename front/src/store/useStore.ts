@@ -496,6 +496,17 @@ export const useStore = create<AppState>((set, get) => ({
         const newUser = { ...user, name: newUserName };
         set({ user: newUser });
         localStorage.setItem('user', JSON.stringify(newUser));
+
+        // 同步更新家庭成员列表中的本人名称
+        set((s) => ({
+          familySpaces: s.familySpaces.map((fs) => ({
+            ...fs,
+            members: fs.members.map((m) =>
+              m.name === user.name ? { ...m, name: newUserName } : m
+            ),
+          })),
+        }));
+
         try {
           const { updateProfile } = await import('@/api/auth');
           await updateProfile({ name: newUserName });

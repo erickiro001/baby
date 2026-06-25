@@ -140,7 +140,7 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
     const threshold = containerWidth.current * 0.2;
     const dx = e.clientX - startX.current;
     if (Math.abs(dx) > threshold) {
-      // 实际滑动了，暂停视频
+      // 实际滑动了，切换图片
       if (videoRef.current && !videoRef.current.paused) {
         videoRef.current.pause();
         setPlaying(false);
@@ -148,6 +148,9 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
       if (dx > 0 && currentIdx.current > 0) goTo(currentIdx.current - 1);
       else if (dx < 0 && currentIdx.current < items.length - 1) goTo(currentIdx.current + 1);
       else setDragOffset(0);
+    } else if (Math.abs(dx) < 5) {
+      // 几乎没有移动 → 点击关闭
+      onClose();
     } else {
       setDragOffset(0);
     }
