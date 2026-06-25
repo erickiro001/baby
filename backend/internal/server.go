@@ -108,6 +108,7 @@ func Run(cfg *config.Config) {
 		{
 			// Auth
 			protected.GET("/profile", authHandler.Profile)
+			protected.PATCH("/profile", authHandler.UpdateProfile)
 
 			// Babies
 			protected.GET("/babies", babyHandler.List)
@@ -141,11 +142,13 @@ func Run(cfg *config.Config) {
 			protected.GET("/albums/:id/photos", albumHandler.GetPhotos)
 			protected.POST("/albums/:id/photos", albumHandler.AddPhotos)
 			protected.DELETE("/albums/:id/photos", albumHandler.RemovePhotos)
+			protected.PUT("/albums/:id/cover", albumHandler.UpdateCover)
 			protected.DELETE("/albums/:id", albumHandler.Delete)
 
 			// Family
 			protected.GET("/family", familyHandler.List)
 			protected.POST("/family", familyHandler.Create)
+			protected.PATCH("/family/:id", familyHandler.Update)
 			protected.POST("/family/:id/invites", familyHandler.CreateInvite)
 
 			// Capsules
@@ -156,6 +159,7 @@ func Run(cfg *config.Config) {
 			// Milestones
 			protected.GET("/babies/:id/milestones", milestoneHandler.List)
 			protected.POST("/babies/:id/milestones", milestoneHandler.Create)
+			protected.DELETE("/babies/:id/milestones/:mid", milestoneHandler.Delete)
 
 			// Creative Works
 			protected.GET("/babies/:id/works", creativeWorkHandler.List)

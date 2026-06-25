@@ -30,3 +30,7 @@ export async function createMilestone(babyId: number, input: Omit<CreateMileston
   const w = await api.post<W<Milestone>>(`${BASE}/babies/${babyId}/milestones`, { ...input, baby_id: babyId });
   return w.data;
 }
+
+export async function deleteMilestone(babyId: number, milestoneId: number): Promise<void> {
+  await api.delete(`${BASE}/babies/${babyId}/milestones/${milestoneId}`);
+}

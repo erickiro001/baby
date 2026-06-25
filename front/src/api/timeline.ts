@@ -35,6 +35,7 @@ export interface TimelineEntry {
   milestone_title: string;
   created_at: string;
   updated_at: string;
+  album_ids?: number[];
 }
 
 export interface CreateEntryInput {

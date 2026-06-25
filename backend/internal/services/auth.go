@@ -40,7 +40,13 @@ type UserSafeView struct {
 	ID       uint   `json:"id"`
 	Username string `json:"username"`
 	Name     string `json:"name"`
+	Avatar   string `json:"avatar"`
 	Email    string `json:"email"`
+}
+
+type UpdateProfileInput struct {
+	Name   string `json:"name" binding:"max=64"`
+	Avatar string `json:"avatar" binding:"max=512"`
 }
 
 func NewAuthService(jwtExpire time.Duration) *AuthService {
@@ -48,7 +54,6 @@ func NewAuthService(jwtExpire time.Duration) *AuthService {
 }
 
 func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
-	// check if username already exists
 	var existing models.User
 	err := database.DB.Where("username = ?", input.Username).First(&existing).Error
 	if err == nil {
@@ -58,7 +63,6 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 		return nil, errors.New("database error")
 	}
 
-	// check if email already exists
 	err = database.DB.Where("email = ?", input.Email).First(&existing).Error
 	if err == nil {
 		return nil, errors.New("email already registered")
@@ -67,13 +71,11 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 		return nil, errors.New("database error")
 	}
 
-	// hash password
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcryptCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	// create user
 	displayName := input.Username
 	if input.Name != "" {
 		displayName = strings.TrimSpace(input.Name)
@@ -90,7 +92,6 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 		return nil, errors.New("failed to create user")
 	}
 
-	// generate JWT
 	token, err := utils.GenerateToken(user.ID, user.Username, displayName, s.JWTExpireDuration)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
@@ -102,13 +103,13 @@ func (s *AuthService) Register(input RegisterInput) (*AuthResult, error) {
 			ID:       user.ID,
 			Username: user.Username,
 			Name:     displayName,
+			Avatar:   user.Avatar,
 			Email:    user.Email,
 		},
 	}, nil
 }
 
 func (s *AuthService) Login(input LoginInput) (*AuthResult, error) {
-	// find user by username or email
 	var user models.User
 	err := database.DB.Where("username = ? OR email = ?", input.Username, input.Username).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -118,7 +119,6 @@ func (s *AuthService) Login(input LoginInput) (*AuthResult, error) {
 		return nil, errors.New("database error")
 	}
 
-	// verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
 		return nil, errors.New("invalid username or password")
 	}
@@ -128,7 +128,6 @@ func (s *AuthService) Login(input LoginInput) (*AuthResult, error) {
 		displayName = user.Username
 	}
 
-	// generate JWT
 	token, err := utils.GenerateToken(user.ID, user.Username, displayName, s.JWTExpireDuration)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
@@ -140,7 +139,39 @@ func (s *AuthService) Login(input LoginInput) (*AuthResult, error) {
 			ID:       user.ID,
 			Username: user.Username,
 			Name:     displayName,
+			Avatar:   user.Avatar,
 			Email:    user.Email,
 		},
+	}, nil
+}
+
+func (s *AuthService) UpdateProfile(userID uint, input UpdateProfileInput) (*UserSafeView, error) {
+	updates := map[string]interface{}{}
+	if input.Name != "" {
+		updates["name"] = strings.TrimSpace(input.Name)
+	}
+	if input.Avatar != "" {
+		updates["avatar"] = input.Avatar
+	}
+	if len(updates) == 0 {
+		return nil, errors.New("nothing to update")
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return nil, errors.New("user not found")
+	}
+	if err := database.DB.Model(&user).Updates(updates).Error; err != nil {
+		return nil, errors.New("failed to update profile")
+	}
+
+	database.DB.First(&user, userID)
+
+	return &UserSafeView{
+		ID:       user.ID,
+		Username: user.Username,
+		Name:     user.Name,
+		Avatar:   user.Avatar,
+		Email:    user.Email,
 	}, nil
 }

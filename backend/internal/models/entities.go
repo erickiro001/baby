@@ -52,6 +52,7 @@ type Baby struct {
 	UserID       uint           `gorm:"index;not null" json:"user_id"`
 	Name         string         `gorm:"size:64;not null" json:"name"`
 	Birthday     string         `gorm:"size:16;not null" json:"birthday"` // "2006-01-02"
+	BirthTime    string         `gorm:"size:8" json:"birth_time"`          // "14:30"
 	Gender       string         `gorm:"size:8;not null" json:"gender"`   // "boy" | "girl"
 	Avatar       string         `gorm:"size:512" json:"avatar"`
 	BloodType    string         `gorm:"size:8" json:"blood_type"`

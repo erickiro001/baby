@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Play, VolumeX, Volume2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Play, VolumeX, Volume2, Download } from 'lucide-react';
 
 export interface MediaItem {
   url: string;
   type: 'photo' | 'video';
+  date?: string;
+  description?: string;
 }
 
 interface MediaViewerProps {
@@ -55,15 +58,38 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveImage = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = url.split('/').pop() || 'image.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // Fallback: open in new tab
+      window.open(url, '_blank');
+    }
+  };
 
   currentIdx.current = current;
   const currentItem = items[current];
 
-  const dateDisplay = date ? formatDate(date) : '';
+  // 优先使用当前 item 的 date/description，回退到 props（兼容旧调用方）
+  const activeDate = currentItem?.date || date || '';
+  const activeDescription = currentItem?.description || description || '';
+  const dateDisplay = activeDate ? formatDate(activeDate) : '';
   const ageDisplay = useMemo(() => {
-    if (!babyBirthday || !date) return '';
-    return computeAge(babyBirthday, date);
-  }, [babyBirthday, date]);
+    if (!babyBirthday || !activeDate) return '';
+    return computeAge(babyBirthday, activeDate);
+  }, [babyBirthday, activeDate]);
 
   const goTo = (idx: number) => {
     if (idx < 0 || idx >= items.length) return;
@@ -221,7 +247,18 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
                   alt=""
                   className="w-full h-full object-contain select-none px-4"
                   draggable={false}
-                  onPointerDown={(e) => e.preventDefault()}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    longPressTimer.current = setTimeout(() => {
+                      setShowActions(true);
+                    }, 600);
+                  }}
+                  onPointerUp={() => {
+                    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                  }}
+                  onPointerLeave={() => {
+                    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                  }}
                 />
               )}
             </div>
@@ -230,11 +267,44 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
       </div>
 
       {/* Description footer */}
-      {description && (
+      {activeDescription && (
         <div className="px-4 py-3 z-10 shrink-0" style={{ backgroundColor: 'rgba(255,252,247,0.92)', backdropFilter: 'blur(8px)' }}>
-          <p className="text-[15px] font-body leading-relaxed" style={{ color: '#5C4033' }}>{description}</p>
+          <p className="text-[15px] font-body leading-relaxed" style={{ color: '#5C4033' }}>{activeDescription}</p>
         </div>
-      )}
+      )}      {/* Save Action Bar */}
+      <AnimatePresence>
+        {showActions && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-[90]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowActions(false)}
+            />
+            <motion.div
+              className="fixed bottom-20 left-4 right-4 z-[91] rounded-2xl px-4 py-3 flex items-center justify-center"
+              style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.15) 0 4px 16px' }}
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            >
+              <motion.button
+                className="flex items-center gap-2 px-6 py-2"
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (currentItem.url) saveImage(currentItem.url);
+                  setShowActions(false);
+                }}
+              >
+                <Download size={18} color="#5C4033" />
+                <span className="text-sm font-heading font-semibold" style={{ color: '#5C4033' }}>保存到本地</span>
+              </motion.button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
     </div>
   );

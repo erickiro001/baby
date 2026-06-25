@@ -27,11 +27,17 @@ export default function App() {
     if (!token) return;
 
     getProfile()
-      .then(() => {
+      .then(async (profile) => {
+        // 用后端最新数据更新用户信息
+        const storedUser = localStorage.getItem('user');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : {};
+        const updatedUser = { ...parsedUser, ...profile };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        useStore.getState().setUser(updatedUser);
         useStore.getState().login();
-        restoreAvatar();
         setPhase('main');
-        useStore.getState().fetchInitialData();
+        await useStore.getState().fetchInitialData();
+        restoreAvatar();
       })
       .catch(() => {
         // token 过期，清除残留
@@ -56,7 +62,8 @@ export default function App() {
       })),
     }));
   };
-    // 如果已经登录过，直接进首页
+
+  const handleEnter = () => {
     if (isLoggedIn) {
       setPhase('main');
     } else {
@@ -64,12 +71,12 @@ export default function App() {
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     useStore.getState().login();
-    restoreAvatar();
     setPhase('main');
-    // 异步加载后端数据
-    useStore.getState().fetchInitialData();
+    // 先加载后端数据，再恢复本地头像
+    await useStore.getState().fetchInitialData();
+    restoreAvatar();
   };
 
   const renderMainPage = () => {

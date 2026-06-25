@@ -4,12 +4,19 @@ import { api } from '@/lib/api';
 export interface UserSafeView {
   id: number;
   username: string;
+  name: string;
+  avatar: string;
   email: string;
 }
 
 export interface LoginResponse {
   token: string;
   user: UserSafeView;
+}
+
+export async function updateProfile(data: { name?: string; avatar?: string }): Promise<UserSafeView> {
+  const wrapper = await api.patch<ApiWrapper<UserSafeView>>(`${BASE}/profile`, data);
+  return wrapper.data;
 }
 
 interface ApiWrapper<T> {

@@ -10,6 +10,7 @@ export interface Baby {
   user_id: number;
   name: string;
   birthday: string;
+  birth_time?: string;
   gender: string;
   avatar: string;
   blood_type: string;
@@ -23,6 +24,7 @@ export interface Baby {
 export interface CreateBabyInput {
   name: string;
   birthday: string;
+  birth_time?: string;
   gender: string;
   avatar?: string;
   blood_type?: string;

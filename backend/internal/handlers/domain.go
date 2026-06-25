@@ -140,6 +140,31 @@ func (h *AlbumHandler) Delete(c *gin.Context) {
 	utils.SuccessMessage(c, "deleted")
 }
 
+// @Summary      更新相册封面
+// @Tags         Album
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                          true "相册 ID"
+// @Param        input body  object{cover_image=string}    true "封面图片URL"
+// @Success      200   {object} utils.APIResponse
+// @Security     BearerAuth
+// @Router       /albums/{id}/cover [put]
+func (h *AlbumHandler) UpdateCover(c *gin.Context) {
+	albumID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var input struct {
+		CoverImage string `json:"cover_image" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	if err := h.svc.UpdateCover(uint(albumID), input.CoverImage); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.SuccessMessage(c, "cover updated")
+}
+
 // ─────────── Family ───────────
 
 // FamilyHandler handles family spaces.
@@ -207,6 +232,22 @@ func (h *FamilyHandler) CreateInvite(c *gin.Context) {
 		return
 	}
 	utils.Success(c, invite)
+}
+
+func (h *FamilyHandler) Update(c *gin.Context) {
+	spaceID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var input struct {
+		Name string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	if err := h.svc.Update(uint(spaceID), input.Name); err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+	utils.SuccessMessage(c, "updated")
 }
 
 // ─────────── Capsule ───────────
@@ -320,6 +361,23 @@ func (h *MilestoneHandler) Create(c *gin.Context) {
 		return
 	}
 	utils.Success(c, ms)
+}
+
+// @Summary      删除里程碑
+// @Tags         Milestone
+// @Produce      json
+// @Param        id   path  int  true  "宝宝 ID"
+// @Param        mid  path  int  true  "里程碑 ID"
+// @Success      200  {object} utils.APIResponse
+// @Security     BearerAuth
+// @Router       /babies/{id}/milestones/{mid} [delete]
+func (h *MilestoneHandler) Delete(c *gin.Context) {
+	mid, _ := strconv.ParseUint(c.Param("mid"), 10, 64)
+	if err := h.svc.Delete(uint(mid)); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.SuccessMessage(c, "deleted")
 }
 
 // ─────────── CreativeWork ───────────

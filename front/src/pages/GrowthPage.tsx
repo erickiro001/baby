@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, differenceInMonths } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+
+/* ─── Helpers ─── */
+/** 从 "3.2kg" / "50cm" 等字符串中提取数值 */
+const parseNumeric = (val: string | undefined): number | undefined => {
+  if (!val) return undefined;
+  const num = parseFloat(val.replace(/[^0-9.]/g, ''));
+  return isNaN(num) ? undefined : num;
+};
 import {
   Star, Plus, X, Clock, Lock, Trash2, TrendingUp, Ruler, Weight, CircleDot,
   Palette, Blocks, Scissors, Mountain, Camera, Video, Sparkles, ImagePlus, ChevronDown,
+  Calendar, Baby, Watch,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import BottomNav from '@/components/BottomNav';
 import GrowthChart from '@/components/GrowthChart';
+import { uploadFile } from '@/api/upload';
 import type { Milestone, Capsule, CreativeWork, CreativeType } from '@/types';
 import type { HealthRecord } from '@/types/health';
 
@@ -26,7 +36,7 @@ const CREATIVE_TYPE_MAP: Record<CreativeType, { label: string; icon: React.React
 };
 
 /* ─── Milestone Card ─── */
-const MilestoneCard: React.FC<{ ms: Milestone; index: number }> = ({ ms, index }) => {
+const MilestoneCard: React.FC<{ ms: Milestone; index: number; onDelete: (id: string) => void }> = ({ ms, index, onDelete }) => {
   const isEvent = ms.type === 'event';
   return (
     <motion.div
@@ -44,6 +54,14 @@ const MilestoneCard: React.FC<{ ms: Milestone; index: number }> = ({ ms, index }
             <p className="text-xs font-heading mb-1" style={{ color: '#8B7355' }}>{format(parseISO(ms.date), 'yyyy年MM月dd日', { locale: zhCN })}</p>
             {ms.description && <p className="text-sm font-body leading-relaxed" style={{ color: '#5C4033' }}>{ms.description}</p>}
           </div>
+          <motion.button
+            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+            style={{ backgroundColor: '#FFF4E1' }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => { if (confirm('删除这条里程碑吗？')) onDelete(ms.id); }}
+          >
+            <Trash2 size={12} color="#FF8A8A" />
+          </motion.button>
         </div>
       </div>
     </motion.div>
@@ -319,13 +337,16 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [type, setType] = useState<CreativeType>('drawing');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreview, setImagePreview] = useState<string[]>([]);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     Array.from(files).forEach((file) => {
+      setImageFiles((prev) => [...prev, file]);
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result;
@@ -339,17 +360,27 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const removeImage = (idx: number) => {
     setImagePreview((prev) => prev.filter((_, i) => i !== idx));
+    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim() || !date || !activeBabyId) return;
+    setUploading(true);
+    // Upload images
+    const uploadedUrls: string[] = [];
+    for (const file of imageFiles) {
+      try {
+        const result = await uploadFile(file);
+        uploadedUrls.push(result.url);
+      } catch { /* skip failed uploads */ }
+    }
     addCreativeWork({
       id: `cw_${Date.now()}`,
       babyId: activeBabyId,
       title: title.trim(),
       type,
       description: description.trim(),
-      images: imagePreview.length > 0 ? imagePreview : undefined,
+      images: uploadedUrls.length > 0 ? uploadedUrls : undefined,
       date,
       createdAt: `${date}T00:00:00`,
     });
@@ -449,7 +480,7 @@ const CreativeWorkForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <textarea placeholder="记录创作过程和感受..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none resize-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} />
           </div>
 
-          <motion.button className="w-full py-3 rounded-full font-heading font-semibold" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={handleSubmit}>保存作品</motion.button>
+          <motion.button className="w-full py-3 rounded-full font-heading font-semibold disabled:opacity-50" style={{ backgroundColor: '#FFD6E5', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={handleSubmit} disabled={uploading}>{uploading ? '上传中…' : '保存作品'}</motion.button>
         </div>
       </motion.div>
     </>
@@ -488,6 +519,7 @@ const GrowthPage: React.FC = () => {
   const deleteHealthRecord = useStore((s) => s.deleteHealthRecord);
   const creativeWorks = useStore((s) => s.creativeWorks);
   const deleteCreativeWork = useStore((s) => s.deleteCreativeWork);
+  const deleteMilestone = useStore((s) => s.deleteMilestone);
   const activeBabyId = useStore((s) => s.activeBabyId);
   const babies = useStore((s) => s.babies);
   const activeBaby = babies.find((b) => b.id === activeBabyId);
@@ -517,7 +549,7 @@ const GrowthPage: React.FC = () => {
     { key: 'health' as const, label: '健康' },
     { key: 'milestones' as const, label: '里程碑' },
     { key: 'capsules' as const, label: '胶囊' },
-    { key: 'creativity' as const, label: '创造力' },
+    { key: 'creativity' as const, label: '小小艺术家' },
   ];
 
   const handleAdd = () => {
@@ -556,14 +588,47 @@ const GrowthPage: React.FC = () => {
           {/* Health Records Tab */}
           {activeTab === 'health' && (
             <motion.div key="health" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              {/* 出生信息 */}
+              {activeBaby && (
+                <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: '#FFFCF7', border: '2px solid #FFD6E5' }}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Baby size={18} color="#FF8A8A" />
+                    <h3 className="text-sm font-heading font-semibold" style={{ color: '#5C4033' }}>出生信息</h3>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <Calendar size={14} color="#8B7355" className="mx-auto mb-1" />
+                      <p className="text-[10px] font-heading" style={{ color: '#8B7355' }}>出生日期</p>
+                      <p className="text-sm font-heading font-semibold mt-0.5" style={{ color: '#5C4033' }}>
+                        {format(parseISO(activeBaby.birthday), 'MM月dd日', { locale: zhCN })}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <Watch size={14} color="#8B7355" className="mx-auto mb-1" />
+                      <p className="text-[10px] font-heading" style={{ color: '#8B7355' }}>出生时间</p>
+                      <p className="text-sm font-heading font-semibold mt-0.5" style={{ color: '#5C4033' }}>
+                        {activeBaby.birthTime || '--:--'}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <Weight size={14} color="#FF8A8A" className="mx-auto mb-1" />
+                      <p className="text-[10px] font-heading" style={{ color: '#8B7355' }}>出生体重</p>
+                      <p className="text-sm font-heading font-semibold mt-0.5" style={{ color: '#5C4033' }}>
+                        {activeBaby.birthWeight || '--'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Latest Stats */}
               {babyRecords.length > 0 && activeBaby && <LatestStats records={babyRecords} birthday={activeBaby.birthday} />}
 
               {/* Growth Charts */}
               {babyRecords.length > 0 && activeBaby && (
                 <>
-                  <GrowthChart records={babyRecords} babyBirthday={activeBaby.birthday} chartType="weight" currentAgeMonths={currentAgeMonths} />
-                  <GrowthChart records={babyRecords} babyBirthday={activeBaby.birthday} chartType="height" currentAgeMonths={currentAgeMonths} />
+                  <GrowthChart records={babyRecords} babyBirthday={activeBaby.birthday} chartType="weight" currentAgeMonths={currentAgeMonths} birthValue={parseNumeric(activeBaby.birthWeight)} />
+                  <GrowthChart records={babyRecords} babyBirthday={activeBaby.birthday} chartType="height" currentAgeMonths={currentAgeMonths} birthValue={parseNumeric(activeBaby.birthHeight)} />
                   <GrowthChart records={babyRecords} babyBirthday={activeBaby.birthday} chartType="head" currentAgeMonths={currentAgeMonths} />
                 </>
               )}
@@ -581,7 +646,7 @@ const GrowthPage: React.FC = () => {
           {/* Milestones Tab */}
           {activeTab === 'milestones' && (
             <motion.div key="ms" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              {babyMilestones.length === 0 ? <div className="flex flex-col items-center py-16"><Star size={28} color="#A09890" /><p className="text-sm font-body mt-2" style={{ color: '#A09890' }}>还没有记录</p></div> : babyMilestones.map((m, i) => <MilestoneCard key={m.id} ms={m} index={i} />)}
+              {babyMilestones.length === 0 ? <div className="flex flex-col items-center py-16"><Star size={28} color="#A09890" /><p className="text-sm font-body mt-2" style={{ color: '#A09890' }}>还没有记录</p></div> : babyMilestones.map((m, i) => <MilestoneCard key={m.id} ms={m} index={i} onDelete={deleteMilestone} />)}
             </motion.div>
           )}
 

@@ -61,11 +61,24 @@ func (s *TimelineService) GetByID(id uint) (*models.TimelineEntry, error) {
 	return &entry, err
 }
 
-func (s *TimelineService) Create(userID uint, username string, input CreateEntryInput) (*models.TimelineEntry, error) {
+func (s *TimelineService) Create(userID uint, input CreateEntryInput) (*models.TimelineEntry, error) {
+	// Look up current user name & avatar
+	var user models.User
+	authorName := ""
+	authorAvatar := ""
+	if err := database.DB.Select("name", "avatar", "username").First(&user, userID).Error; err == nil {
+		authorName = user.Name
+		if authorName == "" {
+			authorName = user.Username
+		}
+		authorAvatar = user.Avatar
+	}
+
 	entry := models.TimelineEntry{
 		BabyID:         input.BabyID,
 		AuthorID:       userID,
-		AuthorName:     username,
+		AuthorName:     authorName,
+		AuthorAvatar:   authorAvatar,
 		Type:           input.Type,
 		Date:           input.Date,
 		Description:    input.Description,
@@ -121,12 +134,24 @@ func (s *TimelineService) ToggleLike(entryID, userID uint) (bool, error) {
 
 // ═══ Comment ═══
 
-func (s *TimelineService) AddComment(entryID, userID uint, authorName, text string) (*models.EntryComment, error) {
+func (s *TimelineService) AddComment(entryID, userID uint, text string) (*models.EntryComment, error) {
+	var user models.User
+	authorName := ""
+	authorAvatar := ""
+	if err := database.DB.Select("name", "avatar", "username").First(&user, userID).Error; err == nil {
+		authorName = user.Name
+		if authorName == "" {
+			authorName = user.Username
+		}
+		authorAvatar = user.Avatar
+	}
+
 	comment := models.EntryComment{
-		EntryID:    entryID,
-		UserID:     userID,
-		AuthorName: authorName,
-		Text:       text,
+		EntryID:      entryID,
+		UserID:       userID,
+		AuthorName:   authorName,
+		AuthorAvatar: authorAvatar,
+		Text:         text,
 	}
 	err := database.DB.Create(&comment).Error
 	return &comment, err

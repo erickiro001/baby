@@ -30,10 +30,14 @@ export async function createAlbum(input: CreateAlbumInput): Promise<Album> {
   return w.data;
 }
 
-export async function addPhotos(albumId: number, photoUrls: string[]): Promise<void> {
-  await api.post(`${BASE}/albums/${albumId}/photos`, { photo_urls: photoUrls });
+export async function addPhotos(albumId: number, entryIds: number[]): Promise<void> {
+  await api.post(`${BASE}/albums/${albumId}/photos`, { entry_ids: entryIds });
 }
 
-export async function removePhotos(albumId: number, photoUrls: string[]): Promise<void> {
-  await api.delete(`${BASE}/albums/${albumId}/photos`, { body: { photo_urls: photoUrls } });
+export async function removePhotos(albumId: number, entryIds: number[]): Promise<void> {
+  await api.delete(`${BASE}/albums/${albumId}/photos`, { entry_ids: entryIds });
+}
+
+export async function updateAlbumCover(albumId: number, coverImage: string): Promise<void> {
+  await api.put(`${BASE}/albums/${albumId}/cover`, { cover_image: coverImage });
 }

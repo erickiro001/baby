@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { uploadFile } from '@/api/upload';
+import { updateProfile } from '@/api/auth';
 import BottomNav from '@/components/BottomNav';
 import type { Baby } from '@/types';
 
@@ -72,6 +73,7 @@ const BabyProfileSection: React.FC = () => {
         await updateBaby(editBaby.id, {
           name: editForm.name.trim(),
           birthday: editForm.birthday,
+          birthTime: editForm.birthTime,
           gender: editForm.gender,
           bloodType: editForm.bloodType,
           birthWeight: editForm.birthWeight,
@@ -125,7 +127,7 @@ const BabyProfileSection: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs font-body" style={{ color: '#8B7355' }}>
-                    生日 {baby.birthday} · 血型{baby.bloodType || '未知'}
+                    生日 {baby.birthday}{baby.birthTime ? ` ${baby.birthTime}` : ''} · 血型{baby.bloodType || '未知'}
                   </p>
                   <p className="text-xs font-body" style={{ color: '#A09890' }}>
                     {baby.birthWeight || '--'} · {baby.birthHeight || '--'}
@@ -185,6 +187,9 @@ const BabyProfileSection: React.FC = () => {
 
                 {/* Birthday */}
                 <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>生日</label><input type="date" value={editForm.birthday || ''} onChange={(e) => setEditForm((p) => ({ ...p, birthday: e.target.value }))} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
+
+                {/* Birth Time */}
+                <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>出生时间（可选）</label><input type="time" value={editForm.birthTime || ''} onChange={(e) => setEditForm((p) => ({ ...p, birthTime: e.target.value }))} className="w-full px-4 py-3 rounded-xl text-sm font-body outline-none" style={{ border: '1.5px solid #5C4033', backgroundColor: '#FFFCF7', color: '#5C4033' }} /></div>
 
                 {/* Gender */}
                 <div><label className="text-xs font-heading mb-1 block" style={{ color: '#8B7355' }}>性别</label><div className="flex gap-2">{(['girl', 'boy'] as const).map((g) => <button key={g} className="flex-1 py-2.5 rounded-xl text-sm font-heading border-2" style={{ backgroundColor: editForm.gender === g ? (g === 'girl' ? '#FFD6E5' : '#A8D8EA') : '#FFFCF7', borderColor: editForm.gender === g ? '#5C4033' : '#A09890', color: '#5C4033' }} onClick={() => setEditForm((p) => ({ ...p, gender: g }))}>{g === 'girl' ? '女宝' : '男宝'}</button>)}</div></div>
@@ -255,8 +260,12 @@ const FamilySection: React.FC<{ onOpenInvite: () => void }> = ({ onOpenInvite })
           <div className="flex flex-wrap gap-3">
             {activeSpace.members.map((member) => (
               <div key={member.id} className="flex flex-col items-center gap-1">
-                <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-heading font-bold" style={{ backgroundColor: avatarColor(member.name), color: '#5C4033', border: member.isOwner ? '2px solid #5C4033' : '1px solid rgba(92,64,51,0.3)' }}>
-                  {member.name.charAt(0)}
+                <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-heading font-bold overflow-hidden" style={{ backgroundColor: member.avatar ? 'transparent' : avatarColor(member.name), color: '#5C4033', border: member.isOwner ? '2px solid #5C4033' : '1px solid rgba(92,64,51,0.3)' }}>
+                  {member.avatar ? (
+                    <img src={member.avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    member.name.charAt(0)
+                  )}
                 </div>
                 <span className="text-[10px] font-heading" style={{ color: '#8B7355' }}>{member.role}</span>
               </div>
@@ -346,7 +355,7 @@ const SettingsSection: React.FC = () => {
             <motion.div className="fixed inset-0 z-[80]" style={{ backgroundColor: 'rgba(92,64,51,0.3)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowConfirm(false)} />
             <motion.div className="fixed top-1/2 left-4 right-4 z-[90] -translate-y-1/2 rounded-2xl p-6" style={{ backgroundColor: '#FFFCF7', border: '2px solid #5C4033', boxShadow: 'rgba(92,64,51,0.2) 0 8px 24px' }} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}>
               <h3 className="text-lg font-heading font-semibold text-center mb-2" style={{ color: '#5C4033' }}>确认退出？</h3>
-              <p className="text-sm font-body text-center mb-6" style={{ color: '#8B7355' }}>退出后将清除本地数据，此操作不可撤销。</p>
+              <p className="text-sm font-body text-center mb-6" style={{ color: '#8B7355' }}>退出后需要重新输入账号密码才能登录。</p>
               <div className="flex gap-3">
                 <motion.button className="flex-1 py-3 rounded-full font-heading font-semibold text-sm" style={{ backgroundColor: '#FFFCF7', border: '2px solid #5C4033', color: '#5C4033' }} whileTap={{ scale: 0.97 }} onClick={() => setShowConfirm(false)}>取消</motion.button>
                 <motion.button className="flex-1 py-3 rounded-full font-heading font-semibold text-sm" style={{ backgroundColor: '#FF8A8A', border: '2px solid #5C4033', color: '#FFFCF7' }} whileTap={{ scale: 0.97 }} onClick={() => { useStore.getState().logout(); setShowConfirm(false); }}>确认</motion.button>
@@ -399,6 +408,7 @@ const ProfilePage: React.FC = () => {
       const result = await uploadFile(file);
       const fullUrl = result.url;
       updateAvatars(fullUrl);
+      await updateProfile({ avatar: fullUrl });
     } catch { /* preview stays */ }
   };
 

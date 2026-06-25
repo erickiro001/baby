@@ -67,7 +67,13 @@ const CommentsDrawer: React.FC = () => {
                 <div className="flex flex-col gap-3">
                   {comments.map((comment, i) => (
                     <motion.div key={comment.id} className="flex gap-2.5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-heading font-bold shrink-0" style={{ backgroundColor: avatarColor(comment.authorName), color: '#5C4033' }}>{comment.authorName.charAt(0)}</div>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-heading font-bold shrink-0 overflow-hidden" style={{ backgroundColor: comment.authorAvatar ? 'transparent' : avatarColor(comment.authorName), color: '#5C4033' }}>
+                        {comment.authorAvatar ? (
+                          <img src={comment.authorAvatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          comment.authorName.charAt(0)
+                        )}
+                      </div>
                       <div className="flex-1 rounded-xl px-3 py-2" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033' }}>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-heading font-semibold" style={{ color: '#5C4033' }}>{comment.authorName}</span>

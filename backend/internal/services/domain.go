@@ -50,6 +50,30 @@ func (s *AlbumService) AddPhotos(albumID uint, entryIDs []uint) error {
 	var count int64
 	database.DB.Model(&models.AlbumPhoto{}).Where("album_id = ?", albumID).Count(&count)
 	database.DB.Model(&models.EventAlbum{}).Where("id = ?", albumID).Update("photo_count", count)
+
+	// auto-set cover: if album has no cover, use the earliest photo (by date)
+	var album models.EventAlbum
+	if err := database.DB.First(&album, albumID).Error; err != nil {
+		return err
+	}
+	if album.CoverImage == "" {
+		// find the earliest entry by date among all album photos
+		var earliest models.TimelineEntry
+		err := database.DB.
+			Joins("JOIN album_photos ON album_photos.entry_id = timeline_entries.id").
+			Where("album_photos.album_id = ?", albumID).
+			Order("timeline_entries.date ASC").
+			First(&earliest).Error
+		if err == nil {
+			cover := earliest.ImageURL
+			if cover == "" && len(earliest.Images) > 0 {
+				cover = earliest.Images[0]
+			}
+			if cover != "" {
+				database.DB.Model(&models.EventAlbum{}).Where("id = ?", albumID).Update("cover_image", cover)
+			}
+		}
+	}
 	return nil
 }
 
@@ -75,6 +99,14 @@ func (s *AlbumService) GetPhotos(albumID uint) ([]models.TimelineEntry, error) {
 func (s *AlbumService) Delete(albumID uint) error {
 	database.DB.Where("album_id = ?", albumID).Delete(&models.AlbumPhoto{})
 	result := database.DB.Delete(&models.EventAlbum{}, albumID)
+	if result.RowsAffected == 0 {
+		return errors.New("album not found")
+	}
+	return result.Error
+}
+
+func (s *AlbumService) UpdateCover(albumID uint, coverImage string) error {
+	result := database.DB.Model(&models.EventAlbum{}).Where("id = ?", albumID).Update("cover_image", coverImage)
 	if result.RowsAffected == 0 {
 		return errors.New("album not found")
 	}
@@ -134,6 +166,10 @@ func (s *FamilyService) CreateInvite(spaceID uint, input CreateInviteInput) (*mo
 	}
 	err := database.DB.Create(&invite).Error
 	return &invite, err
+}
+
+func (s *FamilyService) Update(spaceID uint, name string) error {
+	return database.DB.Model(&models.FamilySpace{}).Where("id = ?", spaceID).Update("name", name).Error
 }
 
 type CreateSpaceInput struct {
@@ -207,6 +243,14 @@ func (s *MilestoneService) Create(input CreateMilestoneInput) (*models.Milestone
 	}
 	err := database.DB.Create(&m).Error
 	return &m, err
+}
+
+func (s *MilestoneService) Delete(id uint) error {
+	result := database.DB.Delete(&models.Milestone{}, id)
+	if result.RowsAffected == 0 {
+		return errors.New("milestone not found")
+	}
+	return result.Error
 }
 
 type CreateMilestoneInput struct {

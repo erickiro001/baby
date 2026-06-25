@@ -63,3 +63,7 @@ export async function createInvite(spaceId: number, input: CreateInviteInput): P
   const w = await api.post<W<InviteRecord>>(`${BASE}/family/${spaceId}/invites`, input);
   return w.data;
 }
+
+export async function updateFamily(spaceId: number, name: string): Promise<void> {
+  await api.patch<W<null>>(`${BASE}/family/${spaceId}`, { name });
+}

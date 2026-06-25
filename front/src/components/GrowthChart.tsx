@@ -12,7 +12,16 @@ interface GrowthChartProps {
   chartType: 'weight' | 'height' | 'head';
   /** Optional — accepted for compatibility, not used in this layout */
   currentAgeMonths?: number;
+  /** 出生时的数值，展示为月龄 0 的数据点 */
+  birthValue?: number;
 }
+
+// 从字符串中提取数值 (如 "3.2kg" → 3.2)
+const parseNumeric = (val: string | undefined): number | undefined => {
+  if (!val) return undefined;
+  const num = parseFloat(val.replace(/[^0-9.]/g, ''));
+  return isNaN(num) ? undefined : num;
+};
 
 // Calculate age in months from birthday to record date
 function getAgeInMonths(birthday: string, recordDate: string): number {
@@ -33,21 +42,27 @@ const CHART_CONFIG = {
   head: { label: '头围 (cm)', color: '#D4E5A8', whoUnit: 'cm' },
 };
 
-const GrowthChart: React.FC<GrowthChartProps> = ({ records, babyBirthday, chartType }) => {
+const GrowthChart: React.FC<GrowthChartProps> = ({ records, babyBirthday, chartType, birthValue }) => {
   const config = CHART_CONFIG[chartType];
   const whoData = WHO_DATA_MAP[chartType];
 
   // Transform baby records to chart data points
   const babyData = useMemo(() => {
-    return records
+    const data = records
       .map((r) => {
         const months = getAgeInMonths(babyBirthday, r.date);
         const value = chartType === 'weight' ? r.weight : chartType === 'height' ? r.height : r.headCircumference;
         return value !== undefined ? { month: months, value, date: r.date } : null;
       })
-      .filter(Boolean)
-      .sort((a, b) => (a?.month || 0) - (b?.month || 0));
-  }, [records, babyBirthday, chartType]);
+      .filter(Boolean);
+
+    // 出生数据作为月龄 0 的数据点
+    if (birthValue !== undefined && birthValue > 0) {
+      data.push({ month: 0, value: birthValue, date: babyBirthday });
+    }
+
+    return data.sort((a, b) => (a?.month || 0) - (b?.month || 0));
+  }, [records, babyBirthday, chartType, birthValue]);
 
   // Merge WHO data with baby data for the chart
   const chartData = useMemo(() => {

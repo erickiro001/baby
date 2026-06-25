@@ -3,6 +3,8 @@ package handlers
 import (
 	"strings"
 
+	"baby-backend/internal/database"
+	"baby-backend/internal/models"
 	"baby-backend/internal/services"
 	"baby-backend/internal/utils"
 
@@ -93,11 +95,42 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Profile(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
-	name, _ := c.Get("name")
+
+	// 从数据库读取最新 name 和 avatar，而非 JWT 中的旧值
+	var user models.User
+	name := ""
+	avatar := ""
+	if err := database.DB.Select("name", "avatar").First(&user, userID).Error; err == nil {
+		name = user.Name
+		if name == "" {
+			name = user.Username
+		}
+		avatar = user.Avatar
+	} else {
+		// fallback to JWT
+		n, _ := c.Get("name")
+		if s, ok := n.(string); ok { name = s }
+	}
 
 	utils.Success(c, gin.H{
 		"id":       userID,
 		"username": username,
 		"name":     name,
+		"avatar":   avatar,
 	})
+}
+
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	var input services.UpdateProfileInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	userID, _ := c.Get("user_id")
+	profile, err := h.authService.UpdateProfile(userID.(uint), input)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, profile)
 }

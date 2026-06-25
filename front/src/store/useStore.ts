@@ -55,6 +55,7 @@ function convertEntry(e: timelineApi.TimelineEntry): TimelineEntry {
       timestamp: c.timestamp,
     })),
     milestoneTitle: e.milestone_title || '',
+    albumIds: (e.album_ids || []).map(String),
   };
 }
 
@@ -228,9 +229,11 @@ interface AppState {
   toggleFeatured: (entryId: string) => Promise<void>;
 
   createEventAlbum: (album: EventAlbum) => Promise<void>;
-  movePhotosToAlbum: (photoIds: string[], albumId: string) => void;
+  setAlbumCover: (albumId: string, coverImage: string) => Promise<void>;
+  movePhotosToAlbum: (photoIds: string[], albumId: string) => Promise<void>;
 
   addMilestone: (ms: Milestone) => Promise<void>;
+  deleteMilestone: (id: string) => Promise<void>;
   addCapsule: (cap: Capsule) => Promise<void>;
   openCapsule: (id: string) => Promise<void>;
   addHealthRecord: (record: HealthRecord) => Promise<void>;
@@ -450,17 +453,57 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ─── 登录 ───
   login: () => set({ isLoggedIn: true }),
-  logout: () => set({ isLoggedIn: false, currentPage: 'home' }),
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('user_avatar');
+    set({ isLoggedIn: false, currentPage: 'home' });
+    window.location.reload();
+  },
 
   // ─── 个人 ───
   setUser: (user) => set({ user }),
   addBaby: (baby) => set((s) => ({ babies: [...s.babies, baby], activeBabyId: baby.id })),
   updateBaby: async (id, data) => {
+    // 先保存旧名字用于联动更新
+    const oldBaby = get().babies.find((b) => b.id === id);
+    const oldName = oldBaby?.name;
+
     set((s) => ({ babies: s.babies.map((b) => (b.id === id ? { ...b, ...data } : b)) }));
+
+    // 如果修改了宝宝昵称，同步更新家庭空间名称和用户显示名
+    if (data.name && oldName && oldName !== data.name) {
+      const state = get();
+      const newSpaces = state.familySpaces.map((fs) => ({
+        ...fs,
+        name: fs.name.replace(oldName, data.name!),
+      }));
+      set({ familySpaces: newSpaces });
+      // 同步到后端
+      try {
+        const { updateFamily } = await import('@/api/family');
+        for (const fs of newSpaces) {
+          await updateFamily(Number(fs.id), fs.name);
+        }
+      } catch { /* 后端同步失败不影响前端 */ }
+      // 同步更新用户昵称（如 嘻嘻爸爸 → 糖糖爸爸）
+      const user = state.user;
+      if (user && user.name.includes(oldName)) {
+        const newUserName = user.name.replace(oldName, data.name!);
+        const newUser = { ...user, name: newUserName };
+        set({ user: newUser });
+        localStorage.setItem('user', JSON.stringify(newUser));
+        try {
+          const { updateProfile } = await import('@/api/auth');
+          await updateProfile({ name: newUserName });
+        } catch { /* 后端同步失败不影响前端 */ }
+      }
+    }
     try {
       await babyApi.updateBaby(Number(id), {
         name: data.name,
         birthday: data.birthday,
+        birth_time: data.birthTime,
         gender: data.gender,
         avatar: data.avatar,
         blood_type: data.bloodType,
@@ -630,7 +673,19 @@ export const useStore = create<AppState>((set, get) => ({
       });
     } catch { /* 乐观创建 */ }
   },
-  movePhotosToAlbum: (photoIds, albumId) =>
+  setAlbumCover: async (albumId, coverImage) => {
+    // 乐观更新本地
+    set((s) => ({
+      eventAlbums: s.eventAlbums.map((a) =>
+        a.id === albumId ? { ...a, coverImage } : a
+      ),
+    }));
+    try {
+      await albumsApi.updateAlbumCover(Number(albumId), coverImage);
+    } catch { /* 乐观更新 */ }
+  },
+  movePhotosToAlbum: async (photoIds, albumId) => {
+    // 乐观更新本地：标记照片已加入相册
     set((s) => ({
       timeline: s.timeline.map((e) => {
         if (photoIds.includes(e.id)) {
@@ -639,7 +694,17 @@ export const useStore = create<AppState>((set, get) => ({
         }
         return e;
       }),
-    })),
+    }));
+    // 异步回写后端
+    try {
+      const numericIds = photoIds.map(Number).filter((n) => !isNaN(n));
+      if (numericIds.length > 0) {
+        await albumsApi.addPhotos(Number(albumId), numericIds);
+        // 后端可能已自动设封面，刷新相册列表获取最新数据
+        await get().fetchAlbums();
+      }
+    } catch { /* 乐观更新 */ }
+  },
 
   // ─── 成长 ───
   addMilestone: async (ms) => {
@@ -652,6 +717,24 @@ export const useStore = create<AppState>((set, get) => ({
         description: ms.description || undefined,
       });
     } catch { /* 乐观创建 */ }
+  },
+
+  deleteMilestone: async (id) => {
+    // 先找里程碑获取 babyId
+    const ms = get().milestones.find((m) => m.id === id);
+    set((s) => ({ milestones: s.milestones.filter((m) => m.id !== id) }));
+    try {
+      if (ms) {
+        const babyIdNum = Number(ms.babyId);
+        const msIdNum = Number(id);
+        // 仅当 ID 都是有效数字时才调后端（demo 数据的 ID 为 'ms1'/'b1' 等非数字）
+        if (!isNaN(babyIdNum) && !isNaN(msIdNum)) {
+          await milestoneApi.deleteMilestone(babyIdNum, msIdNum);
+        }
+      }
+    } catch (e) {
+      console.error('删除里程碑失败:', e);
+    }
   },
 
   addCapsule: async (cap) => {
@@ -793,6 +876,7 @@ export const useStore = create<AppState>((set, get) => ({
         id: String(b.id),
         name: b.name,
         birthday: b.birthday,
+        birthTime: b.birth_time || '',
         gender: b.gender as 'boy' | 'girl',
         avatar: fixUrl(b.avatar || ''),
         bloodType: b.blood_type || '',

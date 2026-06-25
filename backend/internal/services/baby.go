@@ -33,6 +33,7 @@ func (s *BabyService) Create(userID uint, input CreateBabyInput) (*models.Baby, 
 		UserID:      userID,
 		Name:        input.Name,
 		Birthday:    input.Birthday,
+		BirthTime:   input.BirthTime,
 		Gender:      input.Gender,
 		Avatar:      input.Avatar,
 		BloodType:   input.BloodType,
@@ -54,6 +55,9 @@ func (s *BabyService) Update(id, userID uint, input UpdateBabyInput) (*models.Ba
 	}
 	if input.Birthday != nil {
 		baby.Birthday = *input.Birthday
+	}
+	if input.BirthTime != nil {
+		baby.BirthTime = *input.BirthTime
 	}
 	if input.Gender != nil {
 		baby.Gender = *input.Gender
@@ -88,6 +92,7 @@ func (s *BabyService) Delete(id, userID uint) error {
 type CreateBabyInput struct {
 	Name        string `json:"name" binding:"required"`
 	Birthday    string `json:"birthday" binding:"required"`
+	BirthTime   string `json:"birth_time"`
 	Gender      string `json:"gender" binding:"required,oneof=boy girl"`
 	Avatar      string `json:"avatar"`
 	BloodType   string `json:"blood_type"`
@@ -99,6 +104,7 @@ type CreateBabyInput struct {
 type UpdateBabyInput struct {
 	Name        *string `json:"name"`
 	Birthday    *string `json:"birthday"`
+	BirthTime   *string `json:"birth_time"`
 	Gender      *string `json:"gender"`
 	Avatar      *string `json:"avatar"`
 	BloodType   *string `json:"blood_type"`

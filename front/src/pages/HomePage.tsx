@@ -34,8 +34,12 @@ const CardWrapper: React.FC<{ entry: TimelineEntry; index: number; children: Rea
 /* ─── Author Row ─── */
 const AuthorRow: React.FC<{ entry: TimelineEntry }> = ({ entry }) => (
   <div className="flex items-center gap-2.5 px-3.5 pt-3 pb-1.5">
-    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-heading font-bold shrink-0" style={{ backgroundColor: avatarColor(entry.authorName), color: '#5C4033' }}>
-      {entry.authorName.charAt(0)}
+    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-heading font-bold shrink-0 overflow-hidden" style={{ backgroundColor: entry.authorAvatar ? 'transparent' : avatarColor(entry.authorName), color: '#5C4033' }}>
+      {entry.authorAvatar ? (
+        <img src={entry.authorAvatar} alt="" className="w-full h-full object-cover" />
+      ) : (
+        entry.authorName.charAt(0)
+      )}
     </div>
     <div className="flex-1 min-w-0">
       <div className="flex items-center gap-2">
@@ -479,6 +483,7 @@ const HomePage: React.FC = () => {
   const [viewerItems, setViewerItems] = useState<MediaItem[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerEntry, setViewerEntry] = useState<TimelineEntry | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState(false);
 
   const openImageViewer = (entry: TimelineEntry, images: string[], idx: number) => {
     setViewerItems(images.map((url) => ({ url, type: 'photo' as const })));
@@ -544,12 +549,16 @@ const HomePage: React.FC = () => {
       <div className="sticky top-0 z-30 px-4 pt-4 pb-0" style={{ backgroundColor: '#FFFCF7' }}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-3">
-            <div
+            <motion.button
               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-heading font-bold shrink-0 overflow-hidden"
               style={{
                 backgroundColor: activeBaby?.avatar ? 'transparent' : avatarColor(user?.name || '我'),
                 color: '#5C4033',
                 border: '2px solid #5C4033',
+              }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                if (activeBaby?.avatar) setAvatarPreview(true);
               }}
             >
               {activeBaby?.avatar ? (
@@ -559,7 +568,7 @@ const HomePage: React.FC = () => {
               ) : (
                 '我'
               )}
-            </div>
+            </motion.button>
             <div>
               <h1 className="text-lg font-display" style={{ color: '#5C4033' }}>
                 {activeBaby ? `${activeBaby.name}的成长记录` : '宝宝时光'}
@@ -618,6 +627,35 @@ const HomePage: React.FC = () => {
             babyBirthday={activeBaby?.birthday}
           />
       )}
+
+      {/* Avatar Preview */}
+      <AnimatePresence>
+        {avatarPreview && activeBaby?.avatar && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setAvatarPreview(false)}
+          >
+            <motion.div
+              className="relative max-w-[80vw] max-h-[70vh]"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={activeBaby.avatar}
+                alt={activeBaby.name}
+                className="max-w-full max-h-[70vh] rounded-xl object-contain"
+                style={{ border: '3px solid #FFFCF7', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

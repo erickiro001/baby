@@ -17,6 +17,7 @@ export interface Baby {
   id: string;
   name: string;
   birthday: string;
+  birthTime?: string;
   gender: 'boy' | 'girl';
   avatar: string;
   bloodType?: string;

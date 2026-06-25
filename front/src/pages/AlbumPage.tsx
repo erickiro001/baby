@@ -5,7 +5,7 @@ import { zhCN } from 'date-fns/locale';
 import {
   Search, X, Grid3X3, FolderHeart, CheckSquare,
   Download, Trash2, FolderInput, ChevronLeft, Plus, FolderOpen,
-  Image, Play, Calendar,
+  Image, Play, Calendar, ImageOff,
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import BottomNav from '@/components/BottomNav';
@@ -84,7 +84,7 @@ const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: 
 
   const handleCreate = () => {
     if (!newTitle.trim()) return;
-    createEventAlbum({ id: `ea_${Date.now()}`, title: newTitle.trim(), coverImage: `https://picsum.photos/seed/${Date.now()}/300/300`, photoCount: 0, createdAt: new Date().toISOString(), description: newDesc.trim() });
+    createEventAlbum({ id: `ea_${Date.now()}`, title: newTitle.trim(), coverImage: '', photoCount: 0, createdAt: new Date().toISOString(), description: newDesc.trim() });
     setShowCreate(false); setNewTitle(''); setNewDesc('');
   };
 
@@ -108,8 +108,18 @@ const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: 
           {eventAlbums.map((album, i) => (
             <motion.button key={album.id} className="rounded-xl overflow-hidden text-left" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.08) 0 2px 8px' }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} whileTap={{ scale: 0.96 }} onClick={() => onOpenAlbum(album)}>
               <div className="aspect-square relative">
-                <img src={album.coverImage} alt={album.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(92,64,51,0.6) 0%, transparent 50%)' }} />
+                {album.coverImage ? (
+                  <>
+                    <img src={album.coverImage} alt={album.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(92,64,51,0.6) 0%, transparent 50%)' }} />
+                  </>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center" style={{ backgroundColor: '#F5F0EB' }}>
+                    <ImageOff size={32} color="#A09890" strokeWidth={1.5} />
+                    <span className="text-[10px] mt-1" style={{ color: '#A09890' }}>暂无封面</span>
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(92,64,51,0.6) 0%, transparent 50%)' }} />
+                  </div>
+                )}
                 <div className="absolute bottom-2 left-2 right-2">
                   <h3 className="text-sm font-heading font-bold text-white truncate">{album.title}</h3>
                   <p className="text-[10px] text-white/80">{album.photoCount} 张照片</p>
@@ -148,14 +158,34 @@ const EventAlbumsView: React.FC<{ onOpenAlbum: (a: EventAlbum) => void; onBack: 
    ═══════════════════════════════════════════ */
 const AlbumDetailView: React.FC<{ album: EventAlbum; onBack: () => void }> = ({ album, onBack }) => {
   const timeline = useStore((s) => s.timeline);
+  const setAlbumCover = useStore((s) => s.setAlbumCover);
   const photos = useMemo(() => extractPhotos(timeline).filter((p) => p.albumIds?.includes(album.id)), [timeline, album.id]);
   const grouped = useMemo(() => groupByMonth(photos), [photos]);
 
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [coverPhoto, setCoverPhoto] = useState<PhotoItem | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSetAsCover = () => {
+    if (coverPhoto) {
+      setAlbumCover(album.id, coverPhoto.imageUrl);
+      setCoverPhoto(null);
+    }
+  };
+
+  const handlePointerDown = useCallback((photo: PhotoItem) => {
+    timerRef.current = setTimeout(() => {
+      setCoverPhoto(photo);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, 600);
+  }, []);
+  const handlePointerUp = useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  }, []);
 
   const mediaItems: MediaItem[] = useMemo(() =>
-    photos.map((p) => ({ url: p.type === 'video' ? (p.videoUrl || p.imageUrl) : p.imageUrl, type: p.type })),
+    photos.map((p) => ({ url: p.type === 'video' ? (p.videoUrl || p.imageUrl) : p.imageUrl, type: p.type, date: p.date, description: p.description })),
     [photos]);
   const currentViewerPhoto = viewerOpen ? photos[viewerIndex] : null;
 
@@ -180,7 +210,10 @@ const AlbumDetailView: React.FC<{ album: EventAlbum; onBack: () => void }> = ({ 
                   className="aspect-square rounded-sm overflow-hidden relative cursor-pointer"
                   style={{ border: '1px solid rgba(92,64,51,0.1)' }}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                  onClick={() => { const globalIdx = photos.findIndex(p => p.entryId === photo.entryId && p.imageUrl === photo.imageUrl); setViewerIndex(globalIdx); setViewerOpen(true); }}
+                  onPointerDown={() => handlePointerDown(photo)}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  onClick={() => { if (!coverPhoto) { const globalIdx = photos.findIndex(p => p.entryId === photo.entryId && p.imageUrl === photo.imageUrl); setViewerIndex(globalIdx); setViewerOpen(true); } }}
                 >
                   {photo.type === 'video' ? (
                     <div className="relative w-full h-full">
@@ -216,10 +249,32 @@ const AlbumDetailView: React.FC<{ album: EventAlbum; onBack: () => void }> = ({ 
           items={mediaItems}
           initialIndex={viewerIndex}
           onClose={() => setViewerOpen(false)}
-          date={currentViewerPhoto.date}
-          description={currentViewerPhoto.description}
         />
       )}
+
+      {/* Cover Selection Modal */}
+      <AnimatePresence>
+        {coverPhoto && (
+          <>
+            <motion.div className="fixed inset-0 z-[60]" style={{ backgroundColor: 'rgba(92,64,51,0.15)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCoverPhoto(null)} />
+            <motion.div className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl overflow-hidden" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', borderBottom: 'none' }} initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+              <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <h3 className="text-base font-heading font-semibold text-center" style={{ color: '#5C4033' }}>设为相册封面</h3>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-4">
+                <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0" style={{ border: '1.5px solid #5C4033' }}>
+                  <img src={coverPhoto.imageUrl} alt="" className="w-full h-full object-cover" />
+                </div>
+                <p className="text-sm font-body flex-1" style={{ color: '#5C4033' }}>将此照片设为 "{album.title}" 的封面？</p>
+              </div>
+              <div className="flex gap-2 px-4 py-3 border-t" style={{ borderColor: 'rgba(92,64,51,0.1)' }}>
+                <button className="flex-1 py-2.5 rounded-full text-sm font-heading font-semibold" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', color: '#5C4033' }} onClick={() => setCoverPhoto(null)}>取消</button>
+                <button className="flex-1 py-2.5 rounded-full text-sm font-heading font-semibold" style={{ backgroundColor: '#FFD6E5', border: '1.5px solid #5C4033', color: '#5C4033' }} onClick={handleSetAsCover}>确认设为封面</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -239,7 +294,7 @@ const MoveToAlbumModal: React.FC<{ photoIds: string[]; onClose: () => void }> = 
         <div className="max-h-[40vh] overflow-y-auto no-scrollbar py-2">
           {eventAlbums.map((album) => (
             <motion.button key={album.id} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#FFF4E1] transition-colors" whileTap={{ scale: 0.98 }} onClick={() => handleMove(album.id)}>
-              <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0" style={{ border: '1px solid #5C4033' }}><img src={album.coverImage} alt="" className="w-full h-full object-cover" /></div>
+              <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0" style={{ border: '1px solid #5C4033', backgroundColor: '#F5F0EB' }}>{album.coverImage ? <img src={album.coverImage} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageOff size={16} color="#A09890" /></div>}</div>
               <div className="flex-1 min-w-0"><p className="text-sm font-heading font-semibold truncate" style={{ color: '#5C4033' }}>{album.title}</p><p className="text-[11px]" style={{ color: '#8B7355' }}>{album.photoCount} 张照片</p></div>
               <FolderInput size={18} color="#A09890" />
             </motion.button>
@@ -272,6 +327,7 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allPhotos = useMemo(() => extractPhotos(timeline), [timeline]);
@@ -287,7 +343,7 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
 
   // Convert to media items for viewer
   const mediaItems: MediaItem[] = useMemo(() =>
-    filteredPhotos.map((p) => ({ url: p.type === 'video' ? (p.videoUrl || p.imageUrl) : p.imageUrl, type: p.type })),
+    filteredPhotos.map((p) => ({ url: p.type === 'video' ? (p.videoUrl || p.imageUrl) : p.imageUrl, type: p.type, date: p.date, description: p.description })),
     [filteredPhotos]);
   const currentViewerPhoto = viewerOpen ? filteredPhotos[viewerIndex] : null;
 
@@ -296,6 +352,42 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
     timerRef.current = setTimeout(() => { setBatchMode(true); togglePhotoSelection(photo.entryId); if (navigator.vibrate) navigator.vibrate(50); }, 500);
   }, [batchMode, setBatchMode, togglePhotoSelection]);
   const handlePointerUp = useCallback(() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } }, []);
+
+  // 下载选中的照片
+  const handleDownload = useCallback(async () => {
+    const selectedPhotos = allPhotos.filter((p) => selectedPhotoIds.includes(p.entryId));
+    const total = selectedPhotos.length;
+    if (total === 0) return;
+
+    setDownloading(true);
+    try {
+      for (let i = 0; i < total; i++) {
+        const photo = selectedPhotos[i];
+        try {
+          const response = await fetch(photo.videoUrl || photo.imageUrl);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          // 文件名：日期_序号.ext
+          const ext = photo.type === 'video' ? 'mp4' : 'jpg';
+          const dateStr = (photo.date || '').replace(/T.*/, '').replace(/:/g, '');
+          link.download = `${dateStr || 'photo'}_${i + 1}.${ext}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+          // 多个文件之间稍作延迟，避免浏览器阻止
+          if (i < total - 1) await new Promise((r) => setTimeout(r, 300));
+        } catch {
+          // 单个文件失败不影响其余，降级为直接打开链接
+          window.open(photo.videoUrl || photo.imageUrl, '_blank');
+        }
+      }
+    } finally {
+      setDownloading(false);
+    }
+  }, [allPhotos, selectedPhotoIds]);
 
   return (
     <div className="min-h-screen pb-28" style={{ backgroundColor: '#FFFCF7' }}>
@@ -390,8 +482,6 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
           items={mediaItems}
           initialIndex={viewerIndex}
           onClose={() => setViewerOpen(false)}
-          date={currentViewerPhoto.date}
-          description={currentViewerPhoto.description}
         />
       )}
 
@@ -400,7 +490,7 @@ const AlbumGridView: React.FC<{ onOpenEvents: () => void }> = ({ onOpenEvents })
         {batchMode && selectedCount > 0 && (
           <motion.div className="fixed bottom-20 left-3 right-3 z-40 rounded-2xl px-4 py-3" style={{ backgroundColor: '#FFFCF7', border: '1.5px solid #5C4033', boxShadow: 'rgba(92,64,51,0.15) 0 4px 16px' }} initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
             <div className="flex items-center justify-around">
-              <motion.button className="flex flex-col items-center gap-1" whileTap={{ scale: 0.9 }} onClick={() => alert('开始下载...')}><div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#A8D8EA' }}><Download size={18} color="#5C4033" /></div><span className="text-[10px] font-heading" style={{ color: '#5C4033' }}>下载</span></motion.button>
+              <motion.button className="flex flex-col items-center gap-1" whileTap={{ scale: 0.9 }} disabled={downloading} onClick={handleDownload}><div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#A8D8EA' }}>{downloading ? <span className="text-xs font-heading font-bold" style={{ color: '#5C4033' }}>...</span> : <Download size={18} color="#5C4033" />}</div><span className="text-[10px] font-heading" style={{ color: '#5C4033' }}>{downloading ? '下载中' : '下载'}</span></motion.button>
               <motion.button className="flex flex-col items-center gap-1" whileTap={{ scale: 0.9 }} onClick={() => setShowMoveModal(true)}><div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFF4E1' }}><FolderInput size={18} color="#5C4033" /></div><span className="text-[10px] font-heading" style={{ color: '#5C4033' }}>移动</span></motion.button>
               <motion.button className="flex flex-col items-center gap-1" whileTap={{ scale: 0.9 }} onClick={() => { if (confirm(`确定删除选中的 ${selectedCount} 项吗？`)) deleteSelectedPhotos(); }}><div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FF8A8A' }}><Trash2 size={18} color="#FFFCF7" /></div><span className="text-[10px] font-heading" style={{ color: '#FF8A8A' }}>删除</span></motion.button>
             </div>
